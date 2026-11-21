@@ -33,18 +33,18 @@ export const PUBLISHED: Stat[] = [
   {
     id: 'medError',
     label: 'Observed doses with a medication error (median)',
-    value: '20.1%',
+    value: 'About 1 in 5',
     badge: 'SOURCED',
     source: 'psnet.ahrq.gov, "prevalence and nature of medication administration errors" (Keers 2013)',
-    note: 'Mostly timing errors.',
+    note: 'Mostly timing errors. Secondary summary; exact figures not verified at the primary source.',
   },
   {
     id: 'barcode',
     label: 'Administrations with barcode-scanning workarounds',
     value: '66%',
     badge: 'SOURCED',
-    source: 'pubmed.ncbi.nlm.nih.gov/32043705 (multicenter study)',
-    note: '36% skipped scanning.',
+    source: 'pmc.ncbi.nlm.nih.gov/articles/PMC7646849 (van der Veen et al., JAMIA 2018)',
+    note: 'Abstract says 66% (results table: 63%). 36% of workarounds were procedural, such as not scanning.',
   },
   {
     id: 'interrupted',
@@ -83,9 +83,9 @@ export const MODEL: Stat[] = [
   {
     id: 'loadedCostPerNurseYear',
     label: 'Loaded cost per nurse per year',
-    value: '$143,300',
+    value: '$139,497',
     badge: 'ESTIMATE',
-    source: 'BLS median hospital RN wage $100,220 x 1.43 benefits factor (our estimate). BLS URL to be recorded in docs/PITCH.md.',
+    source: 'BLS median RN wage $97,550 (May 2025, all industries, bls.gov/ooh/healthcare/registered-nurses.htm, read 2026-11-21) x 1.43 benefits factor (our assumption).',
   },
   {
     id: 'benefitFactor',

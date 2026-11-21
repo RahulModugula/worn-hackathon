@@ -17,13 +17,13 @@ describe('/impact page', () => {
 
   it('derives the headline price from inputs and shows the arithmetic', () => {
     render(<ImpactPage />);
-    // 143,300 / (173 x 720) = 1.15045 -> $1.15
-    expect(screen.getByText(/A nurse-minute is worth ~\$1\.15\./)).toBeTruthy();
+    // 139,497 / (173 x 720) = 1.11992 -> $1.12
+    expect(screen.getByText(/A nurse-minute is worth ~\$1\.12\./)).toBeTruthy();
     const math = screen.getByTestId('headline-math');
-    expect(math.textContent).toContain('$143,300 loaded cost');
+    expect(math.textContent).toContain('$139,497 loaded cost');
     expect(math.textContent).toContain('173 shifts');
     expect(math.textContent).toContain('720 min');
-    expect(math.textContent).toContain('$1.15');
+    expect(math.textContent).toContain('$1.12');
   });
 
   it('shows a Sourced, Estimate or Assumption tag on every statistic row', () => {
@@ -71,21 +71,21 @@ describe('/impact page', () => {
   it('shows the per-nurse value once: it is the same number as value per device-year', () => {
     render(<ImpactPage />);
     const text = screen.getByLabelText('Outputs').textContent ?? '';
-    expect(text.split('$1,493')).toHaveLength(2); // exactly one occurrence
+    expect(text.split('$1,453')).toHaveLength(2); // exactly one occurrence
     expect(text).toContain('value per device-year');
   });
 
   it('changing an input updates the outputs', () => {
     render(<ImpactPage />);
     const outputs = screen.getByLabelText('Outputs');
-    expect(outputs.textContent).toContain('$1,493');
-    expect(outputs.textContent).toContain('3.6 months');
+    expect(outputs.textContent).toContain('$1,453');
+    expect(outputs.textContent).toContain('3.7 months');
 
     fireEvent.change(screen.getByLabelText('Minutes saved per shift'), { target: { value: '30' } });
-    // 30 x 143,300 / 720 x 0.5 = 2,985.42
-    expect(outputs.textContent).toContain('$2,985');
-    expect(outputs.textContent).toContain('1.8 months');
-    expect(outputs.textContent).not.toContain('3.6 months');
+    // 30 x 139,497 / 720 x 0.5 = 2,906.19
+    expect(outputs.textContent).toContain('$2,906');
+    expect(outputs.textContent).toContain('1.9 months');
+    expect(outputs.textContent).not.toContain('3.7 months');
   });
 
   it('guards divide-by-zero: zero minutes gives n/a payback, zero price gives a free device', () => {
