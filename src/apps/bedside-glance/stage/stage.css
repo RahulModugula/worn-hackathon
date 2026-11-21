@@ -1,0 +1,44 @@
+/* /stage projector page. Designed at 1280x720 and scaled to fit by StagePage. Tokens come from phone/tokens.css.
+   The legacy-WebView rules for /glasses do not apply here; this chunk is never loaded by /glasses. */
+.st-root { position: fixed; inset: 0; background: #000; overflow: hidden; color: var(--fg); font: var(--w-regular) var(--t-16) / 1.35 var(--font-ui); font-variant-numeric: tabular-nums; }
+.st-fit { position: absolute; left: 50%; top: 50%; transform-origin: center center; }
+.st-stage { box-sizing: border-box; width: 1280px; height: 720px; padding: 12px 16px; display: grid; grid-template-rows: 36px 1fr 28px; gap: 8px; background: var(--bg); }
+.st-stage *, .st-stage *::before, .st-stage *::after { box-sizing: border-box; }
+.st-stage h1, .st-stage h2, .st-stage p, .st-stage ol { margin: 0; padding: 0; }
+
+.st-head { display: flex; align-items: center; justify-content: space-between; }
+.st-title { font-size: var(--t-20); font-weight: var(--w-semibold); }
+.st-title span { color: var(--fg-3); font-weight: var(--w-regular); }
+.st-link { font-size: var(--t-16); font-weight: var(--w-semibold); padding: 2px 14px; border-radius: var(--r-round); background: var(--surface-2); }
+.st-link-ok { color: var(--accent); background: var(--accent-bg); }
+.st-link-bad { color: var(--danger); background: var(--danger-bg); }
+.st-link-dim { color: var(--fg-3); }
+
+.st-body { display: grid; grid-template-columns: 640px 1fr; gap: 16px; min-height: 0; }
+.st-left { display: grid; grid-template-rows: 480px 1fr; gap: 8px; min-height: 0; }
+/* A transformed box is the containing block for the mirror's position:fixed canvas wrapper, so the HUD sits inside 640x480. */
+.st-hud { width: 640px; height: 480px; position: relative; overflow: hidden; background: #000; transform: translateZ(0); border-radius: 4px; }
+
+.st-chain { background: var(--surface-1); border-radius: var(--r-card); padding: 10px 16px; overflow: hidden; }
+.st-chain-title { font-size: var(--t-20); font-weight: var(--w-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-steps { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 8px; margin-top: 8px; }
+.st-steps li { font-size: var(--t-16); background: var(--accent-bg); color: var(--accent); padding: 3px 12px; border-radius: var(--r-chip); }
+.st-steps li + li::before { content: none; }
+
+.st-rail { display: grid; grid-auto-rows: min-content; gap: 8px; align-content: start; min-height: 0; }
+.st-panel { background: var(--surface-1); border-radius: var(--r-card); padding: 8px 16px; }
+.st-panel h2 { font-size: var(--t-12); letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-3); font-weight: var(--w-semibold); }
+.st-val { font-size: var(--t-20); font-weight: var(--w-medium); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-dim { color: var(--fg-3); }
+.st-bad { color: var(--danger); }
+
+.st-table { width: 100%; border-collapse: collapse; margin-top: 2px; font-size: var(--t-16); }
+.st-table th { text-align: left; font-weight: var(--w-semibold); width: 26%; }
+.st-table td { padding: 2px 0; color: var(--fg-2); }
+.st-table td:last-child { text-align: right; font-weight: var(--w-semibold); }
+.st-sync-ok { color: var(--accent) !important; }
+.st-sync-warn { color: var(--warn) !important; }
+.st-sync-bad { color: var(--danger) !important; }
+.st-sync-dim { color: var(--fg-3) !important; }
+
+.st-foot { font-size: var(--t-14); color: var(--fg-2); display: flex; align-items: center; }

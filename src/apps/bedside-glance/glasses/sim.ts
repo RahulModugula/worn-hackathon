@@ -27,6 +27,7 @@ export function simHandling(type: string, s: GState, detail?: unknown): SimHandl
     case 'SIM_TRIGGER_PAIN': return { events: [{ type: 'intent', intent: 'pain', force: true }] };
     case 'SIM_TRIGGER_WOUND': return { events: [{ type: 'intent', intent: 'wound', force: true }] };
     case 'SIM_SEND_TO_PHONE': return { events: [{ type: 'intent', intent: 'send', force: true }] };
+    case 'SIM_ACKNOWLEDGE': return { events: [{ type: 'intent', intent: 'acknowledge' }] };
     case 'SIM_ALLERGY_ALERT': return { events: [{ type: 'intent', intent: 'allergy', force: true }] };
     // SIM_FAIL_PHOTO_UPLOAD is a session flag (photoUploadShouldFail); uploads read it, nothing to replay here.
     case 'SIM_FAIL_PHOTO_UPLOAD': return { events: [] };

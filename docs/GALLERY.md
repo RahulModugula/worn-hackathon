@@ -14,15 +14,25 @@ Real captures from the production build, taken by `npm run screenshots` (headles
 |---|---|---|
 | ![G5 med logged](img/hud-g5-med-logged.png) | ![G6 PRN](img/hud-g6-prn.png) | ![Critical allergy](img/hud-critical-allergy.png) |
 
-| Wound prompt | Wound assessment | Conflict banner |
+| Wound prompt | Wound prompt with documented dressing | Wound assessment |
 |---|---|---|
-| ![G7 wound prompt](img/hud-g7-wound-prompt.png) | ![G8 wound assessment](img/hud-g8-wound-assessment.png) | ![Conflict banner](img/hud-conflict-banner.png) |
+| ![G7 wound prompt](img/hud-g7-wound-prompt.png) | ![G7 wound prompt with dressing](img/hud-g7-wound-dressing.png) | ![G8 wound assessment](img/hud-g8-wound-assessment.png) |
 
-Color theme and stage mirror:
+| Conflict banner | Color theme meds card | Color theme critical allergy |
+|---|---|---|
+| ![Conflict banner](img/hud-conflict-banner.png) | ![G4 color theme](img/hud-g4-meds-card-color.png) | ![Critical allergy, color theme](img/hud-critical-allergy-color.png) |
 
-| Color theme | Stage mirror (`?mirror=1`) |
-|---|---|
-| ![G4 color theme](img/hud-g4-meds-card-color.png) | ![Mirror](img/hud-mirror.png) |
+Stage mirror (`?mirror=1`):
+
+![Mirror](img/hud-mirror.png)
+
+## The stage page (`/stage`, 1280x720)
+
+The projector view: the HUD mirror at left and sync health at right. Everything shown is measured on this network, now.
+
+| Default | Linked | Link down | Recovered, 0 lost |
+|---|---|---|---|
+| ![Stage](img/stage-1280x720.png) | ![Stage linked](img/stage-linked.png) | ![Stage chaos](img/stage-chaos.png) | ![Stage recovered](img/stage-recovered.png) |
 
 ## The phone (390x844)
 
@@ -30,9 +40,13 @@ Color theme and stage mirror:
 |---|---|---|---|
 | ![P1](img/phone-p1-my-shift.png) | ![P2](img/phone-p2-patient.png) | ![P3](img/phone-p3-wound-review.png) | ![P4](img/phone-p4-activity-feed.png) |
 
-| Director drawer + preflight | Scan & Talk (Plan B) |
-|---|---|
-| ![Director drawer](img/phone-director-drawer.png) | ![Scan and Talk](img/phone-scan-talk.png) |
+| Dressing documentation | Conflict banner | Director drawer + preflight | Scan & Talk (Plan B) |
+|---|---|---|---|
+| ![Dressing card](img/phone-p3-dressing.png) | ![Phone conflict banner](img/phone-conflict-banner.png) | ![Director drawer](img/phone-director-drawer.png) | ![Scan and Talk](img/phone-scan-talk.png) |
+
+Handoff sheet on the receiving nurse's phone (taller capture so Accept handoff is visible):
+
+<img src="img/phone-handoff-sheet.png" alt="Handoff sheet with Read back buttons and Accept handoff" width="390">
 
 ## The business case page (`/impact`)
 
@@ -43,3 +57,7 @@ Color theme and stage mirror:
 ## Printable wristband codes (`/qr`)
 
 ![QR print page](img/qr-print-794x1123.png)
+
+## Demo loop
+
+![Demo loop](img/demo.gif)

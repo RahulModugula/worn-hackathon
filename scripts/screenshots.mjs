@@ -10,6 +10,7 @@ import {
   CANVAS, GLASSES_VP, IPHONE_UA, PHONE_VP, ROOT, clickButton, clickMedRow, closeDrawer, directorTap, ensureDrawerOpen,
   hidePreviewChrome, launchBrowser, openPage, pngSize, setDsf, sleep, startServer, waitForScreen, waitForText,
 } from './e2e/lib.mjs';
+import { runStageFlow } from './e2e/stage.mjs';
 
 const IMG = path.join(ROOT, 'docs', 'img');
 const FRAMES = path.join(IMG, 'demo-frames');
@@ -212,12 +213,14 @@ async function phoneCaptures(browser, base, sidA) {
     await clickButton(P, '.ph-tabbar', 'Patient', { contains: true }).catch(() => {});
     await P.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => b.textContent.includes('Hand off Rm')), { timeout: 5000 });
     await clickButton(P, '.ph-view-patient', 'Hand off Rm', { contains: true });
-    const N = await openPage(browser, { ua: IPHONE_UA, viewport: PHONE_VP });
+    // Taller viewport than the other phone shots: the I-PASS sheet is long and the capture must include Accept handoff.
+    const N = await openPage(browser, { ua: IPHONE_UA, viewport: { ...PHONE_VP, height: 1400, deviceScaleFactor: 2 } });
     try {
       await N.page.goto(`${base}/phone?nurse=N-02&session=${sid}`, { waitUntil: 'domcontentloaded' });
       await N.page.waitForSelector('.ph-handoff', { timeout: 15000 });
       await sleep(500);
       await phoneShot(N.page, 'phone-handoff-sheet');
+      await N.page.setViewport(PHONE_VP);
       await clickButton(N.page, '.ph-handoff', 'Not now');
       await sleep(400);
       await clickButton(N.page, '.ph-tabbar', 'Patient', { contains: true }).catch(() => {});
@@ -272,6 +275,15 @@ async function mirrorCapture(browser, base) {
   } finally { await close(); }
 }
 
+/** Live /stage in three states: linked, chaos (link down) and recovered (replayed, 0 lost). */
+async function stageFlowCapture(browser, base) {
+  console.log('Stage live flow (1280x720):');
+  const names = { linked: 'stage-linked', chaos: 'stage-chaos', recovered: 'stage-recovered' };
+  await runStageFlow(browser, base, `shots-stage-${Date.now().toString(36)}`, async (state, page) => {
+    await shot(page, page, names[state], { dsf: 1, fallbackDsf: 1 });
+  });
+}
+
 async function webCaptures(browser, base) {
   console.log('Web pages:');
   const imp = await openPage(browser, { viewport: { width: 1280, height: 720, deviceScaleFactor: 1 } });
@@ -282,6 +294,13 @@ async function webCaptures(browser, base) {
   await sleep(300);
   await shot(imp.page, imp.page, 'impact-390x844', { dsf: 2, fallbackDsf: 1.5 });
   await imp.page.close();
+
+  // Stage projector page, no glasses connected: the Not linked state.
+  const stg = await openPage(browser, { viewport: { width: 1280, height: 720, deviceScaleFactor: 1 } });
+  await stg.page.goto(`${base}/stage?session=shots-stage-${Date.now().toString(36)}`, { waitUntil: 'domcontentloaded' });
+  await sleep(1500);
+  await shot(stg.page, stg.page, 'stage-1280x720', { dsf: 1, fallbackDsf: 1 });
+  await stg.page.close();
 
   const qr = await openPage(browser, { viewport: { width: 794, height: 1123, deviceScaleFactor: 1 } });
   await qr.page.goto(`${base}/qr`, { waitUntil: 'domcontentloaded' });
@@ -391,6 +410,8 @@ async function main() {
   try {
     if (process.argv.includes('--demo-only')) {
       await demoFlow(browser, srv.base);
+    } else if (process.argv.includes('--stage-only')) {
+      await stageFlowCapture(browser, srv.base);
     } else if (process.argv.includes('--phone-only')) {
       // Phone, impact and QR pages only (fast loop for UI work).
       await phoneCaptures(browser, srv.base, null);
@@ -401,6 +422,7 @@ async function main() {
       await phoneCaptures(browser, srv.base, null);
       await mirrorCapture(browser, srv.base);
       await webCaptures(browser, srv.base);
+      await stageFlowCapture(browser, srv.base);
       await heroImage(browser);
       await demoFlow(browser, srv.base);
     }

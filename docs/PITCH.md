@@ -5,7 +5,7 @@ Source rule: **only say numbers from the "Sourced numbers" table, and say assump
 ## One line
 **Bedside Glance puts the right patient, the right drug and the allergy warning in a nurse's line of sight, hands free, and charts it to the phone in one tap or word.** Glance on the glasses, depth on the phone: Seamless Handoff.
 
-## Who pays, in 20 seconds (answer Dr. Dai's question first)
+## Who pays, in 20 seconds (answer the hardware maker's question first)
 - **Buyer:** hospital nurse managers / CNOs. **Payer:** the health system's nursing and quality budget. First unit: med-surg.
 - **Why they pay:** nurse time and safety. A bedside RN costs about **$139K/yr loaded** (BLS median RN wage $97,550, May 2025, x 1.43, our assumed benefits multiplier). Every minute per shift is worth about **$194/yr per nurse**. Market: 3,465,400 US RN jobs in 2025, about 59% in hospitals (BLS OOH, read 2026-11-21).
 - **Device price needed:** at 15 min saved per shift and only 50% of it captured, the value is about **$1,450/nurse/year**. Consumer-class glasses ($300-600) pay back in months; a $2,500 enterprise headset needs ~26 min/shift (that is why earlier headset programs stalled). **Our pitch to MicroLumin: a ~$300-600 waveguide display with a camera is exactly the price point where a hospital says yes.** (Assumption: 15 min/shift. No study measures glasses savings yet; the pilot's job is to measure it.)

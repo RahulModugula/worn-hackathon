@@ -371,6 +371,7 @@ export function PhoneApp({ sessionId = 'demo', directorOpen = false, scanOpen = 
           presence: session.presence ?? {},
           directorSelf: directorEnabled,
           telemetry: state?.telemetry,
+          extraOrdersPresent: Object.keys(state?.extraOrders ?? {}).length > 0,
         }}
       />
 
