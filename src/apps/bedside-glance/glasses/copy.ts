@@ -207,15 +207,22 @@ function g6(s: GState, p: Patient, nowMs: number): Row[] {
   ];
 }
 
-function g7(p: Patient, micOff = false): Row[] {
+/** The G7 body line. A nurse-entered dressing replaces the chart default; "per protocol" never invents a due time. */
+function woundLine(s: GState, p: Patient, w: NonNullable<Patient['wound']>): string {
+  const d = s.session.dressings?.[p.id];
+  if (d) return `Changed ${longTime(d.changedMin)} · due ${d.nextDueMin === null ? 'per protocol' : longTime(d.nextDueMin)}`; // [FRD s2]
+  const last = hhmmToMinutes(w.lastChangedAt);
+  return `Changed ${longTime(last)} · due ${longTime(last + w.intervalHours * 60)}`; // [FRD s2]
+}
+
+function g7(s: GState, p: Patient, micOff = false): Row[] {
   const w = p.wound;
   if (!w) return [row('label', 'Wound check', { icon: 'ring' })];
-  const last = hhmmToMinutes(w.lastChangedAt);
   const site = capitalise(w.site.split(',')[0]);
   return [
     row('label', 'Wound check', { icon: 'ring' }),
     row('hero', site),
-    row('body', `Changed ${longTime(last)} · due ${longTime(last + w.intervalHours * 60)}`), // [FRD s2]
+    row('body', woundLine(s, p, w)),
     row('hint', micOff ? 'Tap to take photo' : 'Say "photo"'), // the capture intent matches a bare "photo"; a tap works too
   ];
 }
@@ -334,7 +341,7 @@ export function screenCopy(s: GState, nowMs: number): ScreenCopy {
       break;
     }
     case 'G6': rows = p ? g6(s, p, nowMs) : [row('label', 'PRN', { icon: 'ring' })]; break;
-    case 'G7': rows = p ? g7(p, s.micOff) : [row('label', 'Wound check', { icon: 'ring' })]; break;
+    case 'G7': rows = p ? g7(s, p, s.micOff) : [row('label', 'Wound check', { icon: 'ring' })]; break;
     case 'H3': rows = h3(s); break;
     case 'G8': rows = g8(s); break;
     case 'G9': rows = g9(s); break;

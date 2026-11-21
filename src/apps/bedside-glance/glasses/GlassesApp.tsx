@@ -18,7 +18,7 @@ import { SCREENS } from './screens';
 import { simHandling } from './sim';
 import {
   EMPTY_SESSION, SCAN_SCREENS, fromViewState, initialState, reduce, toViewState,
-  type Effect, type GEvent, type GState, type GlassesAction, type Med, type Patient, type SessionCtx,
+  type Effect, type GEvent, type GlassesDressing, type GState, type GlassesAction, type Med, type Patient, type SessionCtx,
 } from './stateMachine';
 
 export const PATIENTS = (patientsData as unknown as { patients: Patient[] }).patients;
@@ -45,12 +45,18 @@ export interface SessionLike {
 
 export function sessionCtx(st: SessionState | null): SessionCtx {
   if (!st) return EMPTY_SESSION;
+  const dressings: Record<string, GlassesDressing> = {};
+  for (const c of st.woundCaptures) { // oldest to newest: the newest documented dressing per patient wins
+    const d = c.dressing;
+    if (d && d.type !== 'none' && d.changedAtMin !== undefined) dressings[c.patientId] = { changedMin: d.changedAtMin, nextDueMin: d.nextDueMin };
+  }
   return {
     medStatus: Object.fromEntries(Object.entries(st.medStatus).map(([k, v]) => [k, { status: v.status }])),
     clock: st.clock,
     clockOffsetMin: st.clockOffsetMin,
     hasLastLog: st.lastMedLog !== null,
     extraOrders: st.extraOrders as Record<string, Med[]> | undefined,
+    dressings,
   };
 }
 

@@ -46,6 +46,7 @@ export const DIRECTOR_BUTTONS: readonly DirectorButton[] = [
   { label: 'Trigger: Pain', group: 'Triggers', run: sim('SIM_TRIGGER_PAIN') },
   { label: 'Trigger: Wound', group: 'Triggers', run: sim('SIM_TRIGGER_WOUND') },
   { label: 'Capture Wound Photo', group: 'Triggers', run: sim('SIM_CAPTURE_WOUND') },
+  { label: 'Demo: Set Dressing', group: 'Triggers', run: sim('SIM_DRESSING_PRESET') },
   { label: 'Voice: Send to Phone', group: 'Triggers', run: sim('SIM_SEND_TO_PHONE') },
   { label: 'Dr. Reply', group: 'Triggers', run: sim('SIM_DR_REPLY') },
   { label: 'Trigger Allergy Alert', group: 'Triggers', run: sim('SIM_ALLERGY_ALERT') },

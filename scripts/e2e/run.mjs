@@ -146,6 +146,13 @@ async function main() {
       await directorTap(P, 'Voice: Done'); await sleep(250); await audit('G5');
       await directorTap(P, 'Trigger: Pain'); await sleep(250); await audit('G6');
       await directorTap(P, 'Trigger: Wound'); await sleep(250); await audit('G7');
+      // Nurse-documented dressing: the same G7 line with the documented times, audited like every other screen.
+      await directorTap(P, 'Capture Wound Photo');
+      await waitForText(G, 'Wound \u00b7', { scope: CANVAS });
+      await directorTap(P, 'Demo: Set Dressing'); await sleep(300);
+      await directorTap(P, 'Trigger: Wound');
+      await waitForText(G, 'Changed 1:', { scope: CANVAS });
+      await sleep(250); await audit('G7dress');
       await directorTap(P, 'Trigger Allergy Alert'); await sleep(250); await audit('ALLERGY');
       if (violations.length) throw new Error(violations.slice(0, 4).join(' | ') + (violations.length > 4 ? ` (+${violations.length - 4} more)` : ''));
       return `${seen.length} states clean: ${seen.join(', ')}`;

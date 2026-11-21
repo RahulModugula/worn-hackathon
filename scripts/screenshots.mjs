@@ -114,6 +114,14 @@ async function glassCaptures(browser, base) {
     await sleep(400);
     await glassesShot(G, 'hud-g8-wound-assessment');
 
+    // Nurse-documented dressing (Director demo preset), then the wound prompt again: Changed {time} · due {time}.
+    await directorTap(P, 'Demo: Set Dressing');
+    await sleep(300);
+    await directorTap(P, 'Trigger: Wound');
+    await waitForScreen(G, 'G7', 5000);
+    await sleep(300);
+    await glassesShot(G, 'hud-g7-wound-dressing');
+
     await directorTap(P, 'Add Conflicting Order');
     await waitForScreen(G, 'ALLERGY', 5000);
     await sleep(300);
@@ -188,10 +196,15 @@ async function phoneCaptures(browser, base, sidA) {
     await directorTap(P, 'Capture Wound Photo');
     await waitForText(G, 'Maria', { scope: CANVAS });
     await P.waitForFunction(() => !!document.querySelector('.ph-view[aria-labelledby="p3-title"]'), { timeout: 20000 });
+    await directorTap(P, 'Demo: Set Dressing');
+    await sleep(300);
     await closeDrawer(P); // the Director sheet was opened for the wound taps and would cover the review
     await P.waitForFunction(() => !document.querySelector('.ph-undo'), { timeout: 20000 }).catch(() => {}); // earlier Undo toast would cover the review
     await sleep(500);
     await phoneShot(P, 'phone-p3-wound-review');
+    await P.evaluate(() => document.querySelector('.ph-dressing')?.scrollIntoView({ block: 'center' }));
+    await sleep(300);
+    await phoneShot(P, 'phone-p3-dressing');
     await P.evaluate(() => window.scrollTo(0, 0));
   } finally {
     await close();

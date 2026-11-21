@@ -119,6 +119,18 @@ function allCopy(): Case[] {
       }
     }
   }
+  // G7 with a nurse-entered dressing: every clock label (widest 12:59 / 10:59), next due set and "per protocol", mic on and off.
+  for (const p of [worst, ...data]) {
+    for (const [changedMin, nextDueMin] of [[779, 779], [1439, 779], [659, 1439], [0, 720], [779, null], [659, null]] as const) {
+      for (const micOff of [false, true]) {
+        const s: GState = {
+          ...initialState([worst, ...data]), screen: 'G7', patientId: p.id, micOff,
+          session: { medStatus: {}, clock: { baseMin: 822, startedAtMs: 0 }, clockOffsetMin: 0, hasLastLog: false, dressings: { [p.id]: { changedMin, nextDueMin } } },
+        };
+        out.push({ id: `${p.id}/G7/dressing/${changedMin}-${nextDueMin}/${micOff}`, ...screenCopy(s, 0) });
+      }
+    }
+  }
   // Idle (no patient), with and without the mic, for the brand word.
   for (const baseMin of baseMins) {
     for (const listening of [false, true]) {
@@ -275,6 +287,15 @@ describe('copy audit (worst-case inputs, real font metrics)', { timeout: 60_000 
     for (const t of ['Due now · Gluc 182 (11:00a)', 'Not on your list', "Photo not sent · say 'retry'", 'Queued · offline', 'Say "done" · +1 due ("next")', 'Try "done", "vitals", or "close"']) {
       expect(texts.has(t), t).toBe(true);
     }
+  });
+  it('G7 nurse-entered dressing line renders verbatim, fits, and never offers a dressing action', () => {
+    const g7 = all.filter((c) => c.id.includes('/G7/dressing/'));
+    expect(g7.length).toBeGreaterThan(20);
+    const bodies = new Set(g7.map((c) => c.rows.find((r) => r.role === 'body')?.text));
+    for (const t of ['Changed 12:59 PM · due 12:59 PM', 'Changed 11:59 PM · due 12:59 PM', 'Changed 10:59 AM · due per protocol', 'Changed 12:00 AM · due 12:00 PM']) {
+      expect(bodies.has(t), t).toBe(true);
+    }
+    for (const c of g7) { expect(c.rows.filter((r) => r.role !== 'hero').map((r) => r.text).join(' ')).not.toMatch(/…/); expect(c.rows.map((r) => r.text).join(' ')).not.toMatch(/dressing/i); }
   });
   it('progress: the stepper has 2-8 dots and the bar is a 0..1 fraction', () => {
     for (const c of all) {

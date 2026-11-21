@@ -6,7 +6,7 @@
 
 **The right patient, the right drug and the allergy warning in a nurse's line of sight, hands free, charted to the phone in one tap or word.**
 
-Status: working prototype, built Nov 20-21, 2026 | Tests: 567 passing (50 files) | Real M6 glasses: not yet verified | Data: synthetic only | Not a medical device
+Status: working prototype, built Nov 20-21, 2026 | Tests: 604 passing (50 files) | Real M6 glasses: not yet verified | Data: synthetic only | Not a medical device
 
 </div>
 
@@ -32,7 +32,7 @@ A fictional nurse, Priya, in a synthetic med-surg ward:
 2. Says "done" (or taps). The dose is logged and the phone shows `{time} · via glasses`. Target is under a second; measured only as the server acknowledgement on localhost (see Measured and unmeasured); glasses-to-phone latency on real hardware is unmeasured.
 3. If the phone logged the same dose first, the glasses show `Already given {time} via phone`. First write wins; undo works from either device for 10 seconds.
 4. Says "my leg hurts" or "wound": a PRN card or the wound flow appears only if the chart supports it.
-5. Captures a wound photo. The phone shows a side-by-side and a draft note for clinician review (AI-drafted only if `GEMINI_API_KEY` is set; without a key the note is a fixed sample, not AI); "send to Dr. Okafor" lands back on the glasses.
+5. Captures a wound photo. The phone shows a side-by-side and a draft note for clinician review (AI-drafted only if `GEMINI_API_KEY` is set; without a key the note is a fixed sample, not AI); "send to Dr. Okafor" lands back on the glasses. The nurse can also document the dressing (type from a pick list, last changed, a change interval she picks, or per protocol); it is shown on the phone Dressing card, added to the saved note and, as `Changed {time} · due {time}`, on the glasses wound prompt. Documentation only: nothing is recommended or read from the dressing.
 6. Loses Wi-Fi: actions queue (`Queued · offline`) and reconcile on reconnect.
 
 | Glasses HUD (640x480) | | | |
@@ -154,7 +154,7 @@ Measured on a MacBook, 2026-11-21 (details and methods in [docs/COMPAT-PERF.md](
 
 | Measure | Value | Method |
 |---|---|---|
-| Tests | 567 passed, 50 files | `npm test` / `npm run coverage`, 2026-11-21 |
+| Tests | 604 passed, 50 files | `npm test` / `npm run coverage`, 2026-11-21 |
 | Coverage (excludes `server/index.ts`, `src/main.tsx`, `src/polyfills.ts`, tests) | statements 91.73%, branches 85.95%, functions 87.48%, lines 94.96% | `npm run coverage` (v8), 2026-11-21 |
 | `/glasses` bundle | 125,947 B JS and 1,828 B CSS gzip (budgets 140,000 / 2,010) | `npm run build`, `npm run check-budgets`, 2026-11-21 |
 | Lazy chunks | phone 14.73 kB, shared `ui` 3.21 kB, impact 4.63 kB, qr 1.43 kB gzip | Vite report; phone, impact and qr are not loaded by `/glasses` |
@@ -169,6 +169,7 @@ Measured on a MacBook, 2026-11-21 (details and methods in [docs/COMPAT-PERF.md](
 
 - A documentation and verification aid. The nurse decides. It is not a diagnostic device and makes no clinical claims.
 - The wound feature produces a draft note for clinician review. It does not measure, stage or diagnose, and anything model-written is labelled as a draft.
+- **Regulatory note:** a wound photo is a medical image, and FDA's January 2026 CDS guidance keeps software that analyzes a medical image outside the non-device exemption. This is an unregulated hackathon prototype on synthetic data, not a medical device, and a real deployment needs a regulatory assessment first. Dressing fields are nurse-entered documentation with no interval hard-coded as clinical advice. Sources, evidence tags and what we will not claim: [docs/HYDROGEL-RESEARCH.md](docs/HYDROGEL-RESEARCH.md).
 - The allergy alert shows the chart's own allergy list next to the scanned patient's meds. It never blocks logging.
 - Patient identity is an exact match on the wristband payload and meds state is a deterministic server state machine; no model grades its own work.
 - All data is synthetic, enforced by an automated PII audit (`npm run audit-pii`). Nothing in the demo is a real patient.

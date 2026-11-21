@@ -173,12 +173,12 @@ describe('PhoneApp: Director Drawer', () => {
     expect(labels).toEqual([
       'Close', 'Copy status',
       'Start Shift', 'Sim Scan Rm 12', 'Sim Scan Rm 14', 'Voice: Done', 'Voice: Next', 'Voice: Undo',
-      'Trigger: Pain', 'Trigger: Wound', 'Capture Wound Photo', 'Voice: Send to Phone', 'Dr. Reply', 'Trigger Allergy Alert', 'Add Conflicting Order',
+      'Trigger: Pain', 'Trigger: Wound', 'Capture Wound Photo', 'Demo: Set Dressing', 'Voice: Send to Phone', 'Dr. Reply', 'Trigger Allergy Alert', 'Add Conflicting Order',
       'Toggle Photo Fail: OFF', 'Force Offline', 'Clock +30m', 'RESET DEMO',
     ]);
     expect(DIRECTOR_BUTTONS.map(b => b.label)).toEqual([
       'Start Shift', 'Sim Scan Rm 12', 'Sim Scan Rm 14', 'Voice: Done', 'Voice: Next', 'Voice: Undo',
-      'Trigger: Pain', 'Trigger: Wound', 'Capture Wound Photo', 'Voice: Send to Phone', 'Dr. Reply', 'Trigger Allergy Alert', 'Add Conflicting Order',
+      'Trigger: Pain', 'Trigger: Wound', 'Capture Wound Photo', 'Demo: Set Dressing', 'Voice: Send to Phone', 'Dr. Reply', 'Trigger Allergy Alert', 'Add Conflicting Order',
       'Toggle Photo Fail', 'Force Offline', 'Clock +30m', 'RESET DEMO',
     ]);
   });
