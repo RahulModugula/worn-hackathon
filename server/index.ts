@@ -219,7 +219,7 @@ export function createApp(opts: ServerOptions = {}) {
           const cid = (raw as { clientEventId?: unknown } | null)?.clientEventId
           return send(ws, { t: 'error', message: v.error, ...(typeof cid === 'string' && cid.length <= 100 ? { clientEventId: cid } : {}) })
         }
-        const action = { ...v.action, device, ...(peer.instance ? { instance: peer.instance } : {}) } as Action // the body's device and instance are ignored
+        const action = { ...v.action, device, ...(peer.instance ? { instance: peer.instance } : {}), ...(peer.director ? { director: true } : {}) } as Action // the body's device, instance and director flag are ignored
         if (isDirectorOnly(action) && !director) {
           const denied = { ok: false, message: 'Director only', state: structuredClone(session) }
           return send(ws, { t: 'result', clientEventId: action.clientEventId, result: denied })

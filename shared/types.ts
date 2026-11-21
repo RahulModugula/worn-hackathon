@@ -112,6 +112,8 @@ export interface SessionState {
   telemetry?: Partial<Record<TelemetryMetric, number[]>>
   /** Synthetic orders injected by the Director (SIM_ADD_CONFLICT_ORDER), keyed by patient id. */
   extraOrders?: Record<string, ExtraOrder[]>
+  /** Count of injected orders; survives RESET_SESSION so an order id is never reused (a pre-reset ack cannot match a new order). */
+  orderSeq?: number
   /** Verification chain per med/wound event, newest last (bounded). Powers the P4 activity feed. */
   feed?: FeedEntry[]
   /** Allergy alerts a wearer acknowledged on the glasses, so another wearer does not re-alert. Cleared by RESET_SESSION. */
@@ -148,6 +150,8 @@ export interface HandoffPacket {
   createdLabel: string
   /** Indexes into `items` the receiver read back (critical items only). */
   readBack: number[]
+  /** Instance of the first accepted read-back; later read-backs and the accept must come from the same one. */
+  readBackByInstance?: string
   acceptedAtMs?: number
   acceptedLabel?: string
   acceptedByInstance?: string
@@ -203,6 +207,8 @@ interface Base {
    * (`instance=`, uuid-shaped, at most 64 chars); an `instance` in a frame body is ignored.
    */
   instance?: string
+  /** Set by the SERVER when the connection holds director capability; a `director` in a frame body is ignored. */
+  director?: boolean
 }
 
 export type SimActionType =

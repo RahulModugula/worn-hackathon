@@ -223,9 +223,10 @@ function nurseName(patients: PatientsData | undefined, id: string): string {
 }
 
 /** The receiving side is any connection instance that is known and is not the one that made the offer (fails closed). */
-function isReceiver(instance: string | undefined, h: HandoffPacket): boolean {
-  return instance !== undefined && instance !== h.offeredByInstance
+function isReceiver(a: { instance?: string; director?: boolean }, h: HandoffPacket): boolean {
+  return !a.director && a.instance !== undefined && a.instance !== h.offeredByInstance
 }
+export const SAME_DEVICE = 'Read back and accept on the same device'
 
 function findMed(s: SessionState, patients: PatientsData | undefined, patientId: string, medKey: string) {
   return patients?.patients.find(p => p.id === patientId)?.meds?.find(m => m.id === medKey)
@@ -263,6 +264,8 @@ function run(s: SessionState, a: Action, now: number, patients?: PatientsData): 
       return { ok: true }
     }
     case 'LOG_MED': {
+      // The override is a deliberate decision made on the phone; a frame from any other device never carries it.
+      if (a.allergyConfirmed === true && a.device !== 'phone') return { ok: false, message: 'Allergy override must be confirmed on the phone' }
       const key = `${a.patientId}:${a.medKey}`
       const known = patients?.patients.find(p => p.id === a.patientId)
       if (patients && (!known || (known.meds && !known.meds.some(m => m.id === a.medKey) && !ownOrders(s, a.patientId)?.some(m => m.id === a.medKey)))) {
@@ -295,8 +298,8 @@ function run(s: SessionState, a: Action, now: number, patients?: PatientsData): 
     case 'ALLERGY_ACK': {
       const key = `${a.patientId}:${a.medKey}`
       const med = findMed(s, patients, a.patientId, a.medKey)
-      if (patients && !med) return { ok: false, message: 'Unknown patient or med' }
-      if (patients && !allergyHit(patients, a.patientId, med)) return { ok: false, message: 'No allergy conflict' }
+      if (!patients || !med) return { ok: false, message: 'Unknown patient or med' }
+      if (!allergyHit(patients, a.patientId, med)) return { ok: false, message: 'No allergy conflict' }
       const prior = s.allergyAcks?.find(x => x.key === key)
       if (prior) return { ok: false, conflict: true, message: `Already acknowledged ${prior.label}` }
       const dm = demoMinutes(s, now)
@@ -339,17 +342,20 @@ function run(s: SessionState, a: Action, now: number, patients?: PatientsData): 
       const h = handoffOf(s, a.handoffId)
       if (!h) return { ok: false, message: 'No such handoff' }
       if (h.status === 'accepted') return { ok: false, conflict: true, message: acceptedText(h, patients) }
-      if (!isReceiver(a.instance, h)) return { ok: false, message: NOT_RECEIVER_READBACK }
+      if (!isReceiver(a, h)) return { ok: false, message: NOT_RECEIVER_READBACK }
+      if (h.readBackByInstance !== undefined && h.readBackByInstance !== a.instance) return { ok: false, message: SAME_DEVICE }
       if (!Number.isInteger(a.index) || a.index < 0 || a.index >= h.items.length) return { ok: false, message: 'No such item' }
       if (!h.items[a.index].critical) return { ok: false, message: 'Not a critical item' }
       if (!h.readBack.includes(a.index)) { h.readBack.push(a.index); h.readBack.sort((x, y) => x - y) }
+      h.readBackByInstance ??= a.instance
       return { ok: true }
     }
     case 'HANDOFF_ACCEPT': {
       const h = handoffOf(s, a.handoffId)
       if (!h) return { ok: false, message: 'No such handoff' }
       if (h.status === 'accepted') return { ok: false, conflict: true, message: acceptedText(h, patients) }
-      if (!isReceiver(a.instance, h)) return { ok: false, message: NOT_RECEIVER_ACCEPT }
+      if (!isReceiver(a, h)) return { ok: false, message: NOT_RECEIVER_ACCEPT }
+      if (h.readBackByInstance !== undefined && h.readBackByInstance !== a.instance) return { ok: false, message: SAME_DEVICE }
       const unread = criticalIndexes(h.items).filter(i => !h.readBack.includes(i)).length
       if (unread > 0) return { ok: false, message: `Read back ${unread} critical items first` }
       const dm = demoMinutes(s, now)
@@ -373,6 +379,7 @@ function run(s: SessionState, a: Action, now: number, patients?: PatientsData): 
       fresh.version = s.version
       fresh.glassesViewState = null
       fresh.eventSeq = s.eventSeq // monotonic: client cursors must never see seq go backwards
+      if (s.orderSeq !== undefined) fresh.orderSeq = s.orderSeq // injected order ids are never reused after a reset
       Object.assign(s, fresh)
       s.events = []
       delete s.telemetry; delete s.feed; delete s.extraOrders; delete s.allergyAcks; delete s.handoffs // optional keys survive Object.assign
@@ -466,14 +473,16 @@ function run(s: SessionState, a: Action, now: number, patients?: PatientsData): 
         if (a.type === 'SIM_ADD_CONFLICT_ORDER') {
           const pid = (a.payload as { patientId?: unknown } | undefined)?.patientId
           const target = typeof pid === 'string' ? pid : 'P-1012'
-          if (patients && !patients.patients.some(p => p.id === target)) return { ok: false, message: 'Unknown patient' }
+          // Without chart data no allergy check can run, so an injected order would fail open: refuse.
+          if (!patients) return { ok: false, message: 'No patient data' }
+          if (!patients.patients.some(p => p.id === target)) return { ok: false, message: 'Unknown patient' }
           const orders = (s.extraOrders ??= {})
           const list = Object.hasOwn(orders, target) ? orders[target] : (orders[target] = [])
           if (list.length === 0) {
             const dm = demoMinutes(s, now)
             const m = Math.floor(dm ?? 822) % 1440
             const order: ExtraOrder = {
-              id: 'X-1', ...CONFLICT_ORDER, allergyClasses: [...CONFLICT_ORDER.allergyClasses],
+              id: `X-${s.orderSeq = (s.orderSeq ?? 0) + 1}`, ...CONFLICT_ORDER, allergyClasses: [...CONFLICT_ORDER.allergyClasses],
               dueAt: String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'),
             }
             list.push(order)
@@ -627,7 +636,7 @@ export function validateAction(raw: unknown): { action: Action } | { error: stri
     case 'SEND_TO_PHONE': if (!str('text')) return { error: 'bad text' }; break
   }
   // `instance` is stamped by the server from the connect query; a client-supplied one is dropped.
-  const { instance: _ignored, ...clean } = o
-  void _ignored
+  const { instance: _ignored, director: _dir, ...clean } = o
+  void _ignored; void _dir
   return { action: clean as unknown as Action }
 }

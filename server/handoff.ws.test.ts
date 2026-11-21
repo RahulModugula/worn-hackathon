@@ -69,6 +69,15 @@ describe('connection instance (server-stamped)', () => {
     g.close(); bad.close()
   })
 
+  it('a director-capable peer cannot accept (flag stamped server-side); a forged body flag changes nothing for Marcus', async () => {
+    const g = await open('hw4', 'glasses', A), dir = await open('hw4', 'director', '33333333-3333-4333-8333-333333333333'), p = await open('hw4', 'phone', B)
+    await send(g, { type: 'HANDOFF_OFFER', device: 'glasses', handoffId: 'h4', patientId: 'p1', toNurseId: 'N-02' })
+    expect(await send(dir, { type: 'HANDOFF_ACCEPT', device: 'director', handoffId: 'h4' })).toMatchObject({ ok: false, message: "Accept on the receiving nurse's device" })
+    const acc = await send(p, { type: 'HANDOFF_ACCEPT', handoffId: 'h4', director: true })
+    expect(acc.ok).toBe(true) // the non-director phone is still the receiver; its body "director" flag was ignored
+    g.close(); dir.close(); p.close()
+  })
+
   it('SIM_HANDOFF_OFFER is director only', async () => {
     const p = await open('hw3', 'phone', B)
     const r = await send(p, { type: 'SIM_HANDOFF_OFFER', payload: {} })

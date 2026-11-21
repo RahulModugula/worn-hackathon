@@ -24,12 +24,14 @@ export const COOLDOWN_MS = 60_000;
 const NEGATION = String.raw`(?:n['’]t\b|\b(?:not|never|yet|no|nope)\b)`;
 /** A question ("are you done", "when will it be done") is never a command. */
 const QUESTION = String.raw`(?!\W*(?:are|is|was|were|did|do|does|have|has|will|would|when|what|who|how|why|can|could|should)\b)`;
+// Each word is `\S+` followed by whitespace or the end. `\S+\s*` was ambiguous (a long token could be split
+// between iterations) and backtracked exponentially on hostile transcripts.
 /** At most three words in the whole utterance. */
-const SHORT = String.raw`(?=(?:\S+\s*){1,3}$)`;
+const SHORT = String.raw`(?=(?:\S+(?:\s+|$)){1,3}$)`;
 /** At most six words ("start the handoff for this patient"). */
-const SHORT6 = String.raw`(?=(?:\S+\s*){1,6}$)`;
+const SHORT6 = String.raw`(?=(?:\S+(?:\s+|$)){1,6}$)`;
 /** At most four words ("undo the last one"). */
-const SHORT4 = String.raw`(?=(?:\S+\s*){1,4}$)`;
+const SHORT4 = String.raw`(?=(?:\S+(?:\s+|$)){1,4}$)`;
 /** Pain/wound words preceded shortly by a negation ("no pain today", "denies pain", "doesn't hurt"). */
 const NEGATED_CONTEXT = String.raw`(?!.*(?:\b(?:no|not|without|denies|denied|never)\b|n['’]t\b).{0,15}\b(?:pain|hurts?|hurting|wound|incision|dressing)\b)`;
 const guarded = (re: RegExp): RegExp => new RegExp(`^${NEGATED_CONTEXT}.*?(?:${re.source})`);
