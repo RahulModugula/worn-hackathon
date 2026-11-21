@@ -30,9 +30,9 @@ class Store {
   private subs = new Set<() => void>();
   subscribe = (f: () => void) => { this.subs.add(f); return () => { this.subs.delete(f); }; };
   set(patch: Partial<SessionState>) { this.state = { ...this.state!, ...patch }; this.subs.forEach((f) => f()); }
-  sim(type: string) {
+  sim(type: string, detail?: unknown) {
     const seq = this.state!.eventSeq + 1;
-    this.set({ eventSeq: seq, events: [...this.state!.events, { seq, atMs: Date.now() + seq, type, device: 'director' }] });
+    this.set({ eventSeq: seq, events: [...this.state!.events, { seq, atMs: Date.now() + seq, type, device: 'director', ...(detail !== undefined ? { detail } : {}) }] });
   }
   dispatch = (a: Record<string, unknown>) => { this.actions.push(a); return { clientEventId: `id${this.actions.length}` }; };
 }
@@ -464,5 +464,36 @@ describe('allergy flow end to end on the glasses (safety)', () => {
     const logs = store.actions.filter((a) => a.type === 'LOG_MED');
     expect(logs).toHaveLength(1);
     expect(logs[0]).toMatchObject({ medKey: 'M-1' });
+  });
+});
+
+describe('handoff on the glasses', () => {
+  it('SIM_HANDOFF_OFFER with a payload makes the glasses dispatch HANDOFF_OFFER (so the chain credits the glasses), loading Rm 12 first', async () => {
+    const store = new Store();
+    const { container } = render(<Harness store={store} platform={fakePlatform().platform} voice={() => fakeVoice().engine} />);
+    await act(async () => { store.sim('SIM_HANDOFF_OFFER', { toNurseId: 'N-02', severity: 'Watch' }); });
+    expect(screenOf(container)).toBe('G4');
+    expect(store.actions).toContainEqual(expect.objectContaining({ type: 'HANDOFF_OFFER', patientId: 'P-1012', toNurseId: 'N-02', severity: 'Watch', device: 'glasses' }));
+  });
+  it('saying "hand off" offers once; the server notice then shows on G9', async () => {
+    const store = new Store();
+    const voice = fakeVoice();
+    const { container } = render(<Harness store={store} platform={fakePlatform().platform} voice={() => voice.engine} />);
+    await act(async () => { store.sim('SIM_SCAN_RM_12'); });
+    await act(async () => { voice.say('hand off'); });
+    expect(store.actions.filter((a) => a.type === 'HANDOFF_OFFER')).toHaveLength(1);
+    await act(async () => { store.set({ glassesNotice: { text: 'Handoff accepted · Marcus T.', kind: 'handoff', atMs: Date.now() } }); });
+    expect(screenOf(container)).toBe('G9');
+    expect(texts(container)).toContain('Handoff accepted · Marcus T.');
+  });
+  it('a refused offer is toasted from the server ack', async () => {
+    const store = new Store();
+    const voice = fakeVoice();
+    const { container } = render(<Harness store={store} platform={fakePlatform().platform} voice={() => voice.engine} />);
+    await act(async () => { store.sim('SIM_SCAN_RM_12'); });
+    await act(async () => { voice.say('hand off'); });
+    const sent = store.actions.find((a) => a.type === 'HANDOFF_OFFER')!;
+    await act(async () => { store.emitResult({ clientEventId: 'id' + (store.actions.indexOf(sent) + 1), ok: false, message: 'Handoff already offered', action: { type: 'HANDOFF_OFFER' } }); });
+    expect(texts(container)).toContain('Handoff already offered');
   });
 });

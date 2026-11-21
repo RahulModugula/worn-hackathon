@@ -32,6 +32,22 @@ export function makeUuid(): string {
   return `${h.slice(0, 4).join('')}-${h.slice(4, 6).join('')}-${h.slice(6, 8).join('')}-${h.slice(8, 10).join('')}-${h.slice(10).join('')}`
 }
 
+let memoryInstance: string | undefined
+/**
+ * An id for THIS browser tab or app instance, stable across reconnects and reloads of the tab (sessionStorage), different
+ * for every other tab or device. Clients send it as `instance=` on the connect URL; the server stamps it on actions.
+ */
+export function getInstanceId(): string {
+  try {
+    const s = globalThis.sessionStorage
+    let v = s.getItem('hud-instance')
+    if (!v || !/^[0-9a-fA-F-]{8,64}$/.test(v)) { v = makeUuid(); s.setItem('hud-instance', v) }
+    return v
+  } catch {
+    return (memoryInstance ??= makeUuid())
+  }
+}
+
 interface WsLike {
   readyState: number
   send(data: string): void

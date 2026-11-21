@@ -13,6 +13,7 @@ export type Intent =
   | 'pain'
   | 'wound'
   | 'allergy'
+  | 'handoff'
   | 'room12'
   | 'room14';
 
@@ -25,6 +26,8 @@ const NEGATION = String.raw`(?:n['’]t\b|\b(?:not|never|yet|no|nope)\b)`;
 const QUESTION = String.raw`(?!\W*(?:are|is|was|were|did|do|does|have|has|will|would|when|what|who|how|why|can|could|should)\b)`;
 /** At most three words in the whole utterance. */
 const SHORT = String.raw`(?=(?:\S+\s*){1,3}$)`;
+/** At most six words ("start the handoff for this patient"). */
+const SHORT6 = String.raw`(?=(?:\S+\s*){1,6}$)`;
 /** At most four words ("undo the last one"). */
 const SHORT4 = String.raw`(?=(?:\S+\s*){1,4}$)`;
 /** Pain/wound words preceded shortly by a negation ("no pain today", "denies pain", "doesn't hurt"). */
@@ -47,12 +50,14 @@ export const WOUND_PATTERNS: RegExp[] = [
 ].map(guarded);
 
 /** Commands that move the workflow. Only acted on from a FINAL transcript: an interim "done" may still be "done... not". */
-export const FINAL_ONLY_INTENTS: readonly Intent[] = ['done', 'undo'];
+export const FINAL_ONLY_INTENTS: readonly Intent[] = ['done', 'undo', 'handoff'];
 
 /** Order matters: the first matching spec wins. Commands come before the context triggers. */
 export const INTENT_PATTERNS: ReadonlyArray<{ intent: Intent; patterns: RegExp[] }> = [
   { intent: 'acknowledge', patterns: [/\backnowledged?\b/] },
   { intent: 'retry', patterns: [/\bretry\b/, /\btry again\b/] },
+  // A handoff offers the whole patient to another nurse: short, un-negated, un-questioned, FINAL transcripts only.
+  { intent: 'handoff', patterns: [new RegExp(`^${SHORT6}${QUESTION}(?!.*${NEGATION}).*(?<!\\b(?:shake|your|my|her|his|their)\\s)\\b(?:hand[- ]?off|hand[- ]?over)\\b`)] },
   { intent: 'undo', patterns: [new RegExp(`^${SHORT4}${QUESTION}(?!.*${NEGATION}).*\\bundo\\b`)] },
   { intent: 'send', patterns: [/\bsend\b.*\b(?:phone|doctor|dr|patel|nguyen)\b/, /\bsend it\b/] },
   {

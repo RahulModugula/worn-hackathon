@@ -9,7 +9,7 @@ import { createBrowserPlatform } from '../../../hud-kit/platform/browser';
 import { createMicroLuminPlatform, getM6Bridge, type M6Bridge } from '../../../hud-kit/platform/microlumin';
 import type { PlatformAdapter, RgbaFrame } from '../../../hud-kit/platform/types';
 import { createQrScanner, type QrScanner } from '../../../hud-kit/scan/qrScanner';
-import { useSession } from '../../../hud-kit/sync/useSession';
+import { getInstanceId, useSession } from '../../../hud-kit/sync/useSession';
 import { createIntentMatcher } from '../../../hud-kit/voice/intentMatcher';
 import { createVoiceEngine, type VoiceEngine } from '../../../hud-kit/voice/voiceEngine';
 import { FINAL_ONLY_INTENTS, INTENT_PATTERNS, parseIntent, type Intent } from '../triggers';
@@ -452,7 +452,7 @@ export function GlassesAppCore(props: GlassesAppCoreProps) {
       if (e.seq <= cursor) continue;
       seen.current.cursor = Math.max(seen.current.cursor, e.seq);
       if (!(SIM_TYPES as readonly string[]).includes(e.type)) continue;
-      const h = simHandling(e.type, stateRef.current);
+      const h = simHandling(e.type, stateRef.current, e.detail);
       if (!h) continue;
       simCaptureArmed.current = h.simCapture === true;
       for (const ge of h.events) send(ge);
@@ -488,6 +488,7 @@ export function GlassesAppCore(props: GlassesAppCoreProps) {
       const key = tracked.current.get(r.clientEventId);
       if (key) send({ type: 'logConflict', key, message: r.message || 'Already given' });
       else if (r.action?.type === 'UNDO_LAST_MED') send({ type: 'toast', text: r.message || 'Too late to undo' });
+      else if (r.action?.type === 'HANDOFF_OFFER') send({ type: 'toast', text: r.message || 'Handoff not sent' });
     });
   }, [mirror, subscribeResults, send]);
 
@@ -630,7 +631,7 @@ function mirrorKey(mirror: boolean): string {
 function wsUrl(sessionId: string, mirror: boolean): string {
   const loc = window.location;
   // The stage mirror is read-only: it must not count as the glasses in presence.
-  return `${loc.protocol === 'https:' ? 'wss:' : 'ws:'}//${loc.host}/ws?session=${encodeURIComponent(sessionId)}&device=${mirror ? 'director' : 'glasses'}${mirrorKey(mirror)}`;
+  return `${loc.protocol === 'https:' ? 'wss:' : 'ws:'}//${loc.host}/ws?session=${encodeURIComponent(sessionId)}&device=${mirror ? 'director' : 'glasses'}&instance=${encodeURIComponent(getInstanceId())}${mirrorKey(mirror)}`;
 }
 /** Wired glasses app: real session socket and the platform adapter for this host. */
 export function GlassesApp(props: GlassesAppProps) {

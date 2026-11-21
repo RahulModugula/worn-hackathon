@@ -43,6 +43,12 @@ function hasDirectorCapability(u: URL): boolean {
   return !required || u.searchParams.get('key') === required
 }
 
+/** A connection instance id: uuid-shaped (hex and dashes), 8 to 64 chars. Anything else is treated as "no instance". */
+const INSTANCE_RE = /^[0-9a-fA-F-]{8,64}$/
+export function parseInstance(v: string | null): string | undefined {
+  return v !== null && INSTANCE_RE.test(v) ? v : undefined
+}
+
 /** Log and keep serving: a bad packet or stray rejection must not take the demo down. */
 export function installCrashGuards(): () => void {
   const onErr = (err: unknown) => console.error('uncaught error (server keeps running):', err instanceof Error ? err.message : String(err))
@@ -99,7 +105,7 @@ export function createApp(opts: ServerOptions = {}) {
   })
   const http = createServer(app)
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_FRAME })
-  interface Peer { device: Device; director: boolean; misses: number }
+  interface Peer { device: Device; director: boolean; misses: number; instance?: string }
   const rooms = new Map<string, Map<WebSocket, Peer>>()
   const maxSessions = opts.maxSessions ?? MAX_SESSIONS
   const isBusy = (sid: string) => (rooms.get(sid)?.size ?? 0) > 0
@@ -173,7 +179,9 @@ export function createApp(opts: ServerOptions = {}) {
     }
     let room = rooms.get(sid)
     if (!room) { room = new Map(); rooms.set(sid, room) }
-    const peer: Peer = { device, director, misses: 0 }
+    // Stamped here and nowhere else: a frame body cannot claim another instance (validateAction drops it).
+    const instance = parseInstance(u.searchParams.get('instance'))
+    const peer: Peer = { device, director, misses: 0, instance }
     room.set(ws, peer)
     ws.on('pong', () => { peer.misses = 0 })
     ws.on('close', () => { room!.delete(ws); if (room!.size === 0 && rooms.get(sid) === room) rooms.delete(sid); broadcastPresence(sid) })
@@ -191,7 +199,7 @@ export function createApp(opts: ServerOptions = {}) {
           const cid = (raw as { clientEventId?: unknown } | null)?.clientEventId
           return send(ws, { t: 'error', message: v.error, ...(typeof cid === 'string' && cid.length <= 100 ? { clientEventId: cid } : {}) })
         }
-        const action = { ...v.action, device } as Action // the body's device is ignored
+        const action = { ...v.action, device, ...(peer.instance ? { instance: peer.instance } : {}) } as Action // the body's device and instance are ignored
         if (isDirectorOnly(action) && !director) {
           const denied = { ok: false, message: 'Director only', state: structuredClone(session) }
           return send(ws, { t: 'result', clientEventId: action.clientEventId, result: denied })

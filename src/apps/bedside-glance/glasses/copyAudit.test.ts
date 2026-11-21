@@ -78,6 +78,13 @@ const worst: Patient = {
 /** Widest-letter allergy name, to stress the aside budget. */
 const wide: Patient = { ...data[0], id: 'P-WIDE', qrPayload: 'BG-P-WIDE', name: 'Wim Wiwmmmmm', allergies: ['Mmmmmmmmmmmmmmmmmmmm'] };
 const none: Patient = { ...data[0], id: 'P-NONE', qrPayload: 'BG-P-NONE', allergies: [] };
+/** Notices that may reach G9 (the longest nurse name the roster could hold, and the locked handoff strings). */
+const NOTICES = [
+  'Looks good. Continue dressing plan. Call if redness spreads over time.',
+  'Handoff sent · Marcus T.',
+  'Handoff accepted · Marcus T.',
+  'Handoff accepted · Bartholomew Featherstonehaugh-M.',
+];
 const LONG = 'Incision edges closed with no redness. No drainage seen anywhere on the dressing today.';
 
 type Case = ScreenCopy & { id: string };
@@ -105,11 +112,13 @@ function allCopy(): Case[] {
                     fadeAtMs: 3000,
                     alert: { allergy: 'Sulfonamide', drug: 'Trimethoprim-sulfamethoxazole 800 mg' },
                   };
+                  for (const notice of screen === 'G9' ? NOTICES : NOTICES.slice(0, 1)) {
                   for (const stage of ['upload', 'assess', 'failed'] as const) {
                     for (const scanFail of screen === 'G3' ? (['unknown', 'unassigned'] as const) : ([null] as const)) {
-                      const c = screenCopy({ ...s, stage, scanFail }, 0);
-                      out.push({ id: `${p.id}/${screen}/${stage}/${scanFail}/${baseMin}+${offset}/${offline}/${listening}/${toast ?? '-'}`, ...c });
+                      const c = screenCopy({ ...s, stage, scanFail, notice: { label: p.attending, text: notice } }, 0);
+                      out.push({ id: `${p.id}/${screen}/${stage}/${scanFail}/${baseMin}+${offset}/${offline}/${listening}/${toast ?? '-'}/${notice.slice(0, 12)}`, ...c });
                     }
+                  }
                   }
                 }
               }

@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { useSession } from '../../../hud-kit/sync/useSession';
+import { getInstanceId, useSession } from '../../../hud-kit/sync/useSession';
 import type { Action, SessionState } from '../../../../shared/types';
 import type { ActionInput } from './model';
 
@@ -9,6 +9,8 @@ export interface SocketOptions {
   director?: boolean;
   /** Matches the server's DIRECTOR_KEY, when one is set. */
   key?: string;
+  /** This tab's instance id (server stamps it on actions; a handoff must be accepted on a different instance). */
+  instance?: string;
 }
 
 export function sessionSocketUrl(
@@ -18,7 +20,8 @@ export function sessionSocketUrl(
 ): string {
   const proto = loc.protocol === 'https:' ? 'wss:' : 'ws:';
   const extra = opts.director ? `&director=1${opts.key ? `&key=${encodeURIComponent(opts.key)}` : ''}` : '';
-  return `${proto}//${loc.host}/ws?session=${encodeURIComponent(sessionId)}&device=phone${extra}`;
+  const inst = opts.instance ? `&instance=${encodeURIComponent(opts.instance)}` : '';
+  return `${proto}//${loc.host}/ws?session=${encodeURIComponent(sessionId)}&device=phone${extra}${inst}`;
 }
 
 function pageKey(): string | undefined {
@@ -27,7 +30,7 @@ function pageKey(): string | undefined {
 
 export function useBedsideSession(sessionId = 'demo', opts: SocketOptions = {}) {
   const director = opts.director === true;
-  const url = useMemo(() => sessionSocketUrl(sessionId, window.location, { director, key: opts.key ?? pageKey() }), [sessionId, director, opts.key]);
+  const url = useMemo(() => sessionSocketUrl(sessionId, window.location, { director, key: opts.key ?? pageKey(), instance: getInstanceId() }), [sessionId, director, opts.key]);
   const storageKey = `bedside-glance:phone:${sessionId}`;
   const s = useSession<SessionState, Action>({ url, storageKey });
   const { dispatch } = s;

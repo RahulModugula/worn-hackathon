@@ -1,9 +1,10 @@
 // Pure glasses state machine (FRD v2.2 section 3). No React, no timers, no I/O:
 // reduce(state, event, nowMs) -> { state, effects }. The host runs the effects.
 import { ACTIONABLE_WINDOW_MIN, DEMO_START_MIN, hhmmToMinutes, longTime } from '../../../../shared/clock';
-import type { Action } from '../../../../shared/types';
+import type { Action, Severity } from '../../../../shared/types';
 import { checkAllergy } from '../../../../shared/allergy';
 import demoResponses from '../../../../data/demo-responses.json';
+import patientsFile from '../../../../data/patients.json';
 import { makeUuid } from '../../../hud-kit/sync/useSession';
 import { COOLDOWN_MS, type Intent } from '../triggers';
 
@@ -130,6 +131,8 @@ export type GEvent =
   | { type: 'scanTimeout' }
   | { type: 'intent'; intent: Intent; force?: boolean; via?: 'voice' | 'tap' }
   | { type: 'heard'; intent: Intent }
+  /** Offer this patient to another nurse (voice "hand off" or Director SIM_HANDOFF_OFFER). */
+  | { type: 'handoffOffer'; toNurseId?: string; severity?: Severity }
   /** The session's activePatientId changed elsewhere (the phone scanned). Loads that card; dispatches nothing. */
   | { type: 'adopt'; patientId: string }
   | { type: 'listening'; on: boolean }
@@ -209,6 +212,20 @@ export function nextMed(s: GState, nowMs: number): Med | null {
 export function shownMed(s: GState, nowMs: number): Med | null {
   const due = dueMeds(s, nowMs);
   return due.length ? due[Math.min(Math.max(s.dueCursor, 0), due.length - 1)] : null;
+}
+
+/** The nurse this wearer hands off to by default: the first roster nurse who is not the signed-in one (data/patients.json). */
+const ROSTER = patientsFile as unknown as { nurse?: { id?: string }; handoffNurses?: { id: string }[] };
+export const DEFAULT_HANDOFF_TO: string = ROSTER.handoffNurses?.find((n) => n.id !== ROSTER.nurse?.id)?.id ?? 'N-02';
+
+function offerHandoff(s: GState, now: number, toNurseId: string = DEFAULT_HANDOFF_TO, severity?: Severity): Result {
+  const p = currentPatient(s);
+  if (!p || s.screen === 'H3' || s.screen === 'ALLERGY' || SCAN_SCREENS.includes(s.screen) || !cooldownOk(s, p.id, 'handoff', now)) return done(s);
+  const handoffId = `ho-${makeUuid().replace(/-/g, '')}`;
+  return {
+    state: { ...s, cooldowns: { ...s.cooldowns, [`${p.id}:handoff`]: now } },
+    effects: [{ type: 'dispatch', action: { type: 'HANDOFF_OFFER', handoffId, patientId: p.id, toNurseId, ...(severity ? { severity } : {}) } }],
+  };
 }
 
 // ---------- reducer ----------
@@ -380,6 +397,8 @@ function onIntent(s: GState, intent: Intent, now: number, force: boolean, via: '
     }
     case 'acknowledge':
       return done(s);
+    case 'handoff':
+      return offerHandoff(s, now);
   }
 }
 
@@ -509,6 +528,8 @@ export function reduce(s: GState, e: GEvent, now: number): Result {
       if (!isAssigned(s, p)) return done(enter(s, 'G3', now, { scanFail: 'unassigned' }));
       return done(loadPatient(s, p, now)); // no SET_ACTIVE_PATIENT: the server already has it (no echo loop)
     }
+    case 'handoffOffer':
+      return offerHandoff(s, now, e.toNurseId, e.severity);
     case 'heard':
       if (!s.patientId || s.screen === 'ALLERGY' || s.screen === 'H3') return done(s);
       return done({ ...s, toast: { text: `Heard: ${e.intent === 'room12' ? 'room 12' : e.intent === 'room14' ? 'room 14' : e.intent}`, untilMs: now + HEARD_MS } });

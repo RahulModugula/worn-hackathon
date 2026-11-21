@@ -5,6 +5,10 @@
     "name": "Priya S.",
     "assignedPatientIds": ["P-1012", "P-1014"]
   },
+  "handoffNurses": [
+    { "id": "N-01", "name": "Priya S." },
+    { "id": "N-02", "name": "Marcus T." }
+  ],
   "patients": [
     {
       "id": "P-1012",
