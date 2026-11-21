@@ -44,6 +44,8 @@ export const MISS_TOAST = 'Try "done", "vitals", or "close"';
 export const HEARD_MS = 1500;
 export const OFFLINE_QUEUED = 'Queued · offline';
 export const NOT_ON_LIST = 'Not on your list';
+/** 'done' on an allergy-conflicting med: the glasses never give it; the nurse confirms on the phone. */
+export const ALLERGY_CONFIRM_PHONE = 'Allergy · confirm on phone';
 export const PHOTO_FAILED = "Photo not sent · say 'retry'";
 
 export const SCAN_SCREENS: readonly ScreenId[] = ['G1', 'G2', 'G3'];
@@ -58,6 +60,8 @@ export interface SessionCtx {
   extraOrders?: Record<string, Med[]>;
   /** Nurse-entered dressing times per patient id (newest capture wins). Absent = show the chart default. */
   dressings?: Record<string, GlassesDressing>;
+  /** `${patientId}:${medKey}` of allergy alerts any wearer acknowledged (server `allergyAcks`). */
+  allergyAcks?: string[];
 }
 /** Minutes since midnight; nextDueMin is null for "per protocol". */
 export interface GlassesDressing { changedMin: number; nextDueMin: number | null }
@@ -174,10 +178,16 @@ function isGiven(s: GState, key: string): boolean {
   return s.session.medStatus[key]?.status === 'given' || s.pending.includes(key);
 }
 
+/** An allergy-conflicting order the wearer already acknowledged: it must never be the hero while a real med is waiting. */
+function isAckedConflict(s: GState, p: Patient, m: Med): boolean {
+  return s.ackAlerts.includes(`${p.id}:${m.id}`) && checkAllergy(p, m) !== null;
+}
+
 function ungiven(s: GState, p: Patient): Med[] {
+  const rank = (m: Med): number => (isAckedConflict(s, p, m) ? 1 : 0);
   return medsOf(s, p)
     .filter((m) => !isGiven(s, `${p.id}:${m.id}`))
-    .sort((a, b) => hhmmToMinutes(a.dueAt) - hhmmToMinutes(b.dueAt));
+    .sort((a, b) => rank(a) - rank(b) || hhmmToMinutes(a.dueAt) - hhmmToMinutes(b.dueAt));
 }
 
 /** Meds that are not given and due within the 30-minute actionable window. */
@@ -282,7 +292,10 @@ function onIntent(s: GState, intent: Intent, now: number, force: boolean, via: '
     if (intent !== 'acknowledge') return done(s);
     const c = s.alert ? findConflict({ ...s, alert: null }, now) : null;
     const ack = c ? [...s.ackAlerts, c.key] : s.ackAlerts;
-    return done(enter(s, s.prev ?? home(s), now, { prev: null, alert: null, ackAlerts: ack }));
+    const next = enter(s, s.prev ?? home(s), now, { prev: null, alert: null, ackAlerts: ack });
+    if (!c || !p) return done(next);
+    // Record it on the server so another wearer does not re-alert and the phone can show it. Never consent to give the drug.
+    return { state: next, effects: [{ type: 'dispatch', action: { type: 'ALLERGY_ACK', patientId: p.id, medKey: c.key.slice(p.id.length + 1), via: via === 'tap' ? 'tap' : 'voice' } }] };
   }
 
   switch (intent) {
@@ -290,6 +303,8 @@ function onIntent(s: GState, intent: Intent, now: number, force: boolean, via: '
       if (scr !== 'G4' || !p) return done(s);
       const med = shownMed(s, now);
       if (!med) return done(s); // None due: "done" is disabled
+      // The server refuses an allergy conflict without allergyConfirmed (phone only). Do not even try from the glasses.
+      if (checkAllergy(p, med)) return done(toast(s, ALLERGY_CONFIRM_PHONE, now));
       const key = `${p.id}:${med.id}`;
       const at = longTime(demoNowMin(s.session, now));
       const next = enter(s, 'G5', now, {
@@ -414,7 +429,7 @@ function onTap(s: GState, now: number): Result {
 
 function onLongPress(s: GState, now: number): Result {
   // Mic off: a deliberate long press is the only way to acknowledge (a tap never is). Mic live: speech only.
-  if (s.screen === 'ALLERGY') return s.micOff ? onIntent(s, 'acknowledge', now, false) : done(s);
+  if (s.screen === 'ALLERGY') return s.micOff ? onIntent(s, 'acknowledge', now, false, 'tap') : done(s);
   if (s.screen === 'G4' && dueMeds(s, now).length > 1) return onIntent(s, 'next', now, false);
   return done(close(s, now));
 }
@@ -464,7 +479,10 @@ export function reduce(s: GState, e: GEvent, now: number): Result {
     }
     case 'session': {
       const pending = s.pending.filter((k) => e.session.medStatus[k]?.status !== 'given');
-      return done(withConflictAlert({ ...s, session: e.session, pending }, now)); // a newly added order can conflict
+      // Alerts another wearer (or an earlier session of this one) acknowledged must not re-alert here.
+      const seeded = (e.session.allergyAcks ?? []).filter((k) => !s.ackAlerts.includes(k));
+      const ackAlerts = seeded.length ? [...s.ackAlerts, ...seeded] : s.ackAlerts;
+      return done(withConflictAlert({ ...s, session: e.session, pending, ackAlerts }, now)); // a newly added order can conflict
     }
     case 'offline':
       return done(s.offline === e.offline ? s : { ...s, offline: e.offline });

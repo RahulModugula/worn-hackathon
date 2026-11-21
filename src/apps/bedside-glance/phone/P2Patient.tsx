@@ -1,7 +1,7 @@
 import type { SessionState } from '../../../../shared/types';
 import { hhmmToMinutes, longTime } from '../../../../shared/clock';
 import {
-  clockLabel, deviceLabel, medGroupOf, medRows, minutesLeft, prnNextMin, relativeDue, woundDueMin, type MedGroup, type MedRow, type Patient,
+  allergyAcksFor, clockLabel, deviceLabel, medGroupOf, medRows, minutesLeft, prnNextMin, relativeDue, woundDueMin, type MedGroup, type MedRow, type Patient,
 } from './model';
 import { Icon } from './Icon';
 import { Avatar, Button, Card, DueText, EmptyState, Stat } from './ui';
@@ -81,6 +81,13 @@ export function P2Patient({ patient, state, nowMin, onLogMed, onNotice, onWound,
           </p>
         )}
       </div>
+
+      {allergyAcksFor(state, patient.id).map(a => (
+        <p key={a.key} className="ph-allergy-bar" role="status" data-allergy-ack={a.key}>
+          <Icon name="allergy" size={20} />
+          <span>Allergy alert acknowledged on {a.device === 'glasses' ? 'glasses' : 'phone'} {a.label}</span>
+        </p>
+      ))}
 
       {grouped.map(g => g.rows.length > 0 && (
         <div key={g.id} className="ph-group">

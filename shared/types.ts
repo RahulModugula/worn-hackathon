@@ -114,6 +114,19 @@ export interface SessionState {
   extraOrders?: Record<string, ExtraOrder[]>
   /** Verification chain per med/wound event, newest last (bounded). Powers the P4 activity feed. */
   feed?: FeedEntry[]
+  /** Allergy alerts a wearer acknowledged on the glasses, so another wearer does not re-alert. Cleared by RESET_SESSION. */
+  allergyAcks?: AllergyAck[]
+}
+
+export const MAX_ALLERGY_ACKS = 20
+export interface AllergyAck {
+  /** `${patientId}:${medKey}` */
+  key: string
+  atMs: number
+  /** Demo-clock label of the acknowledgement, e.g. "1:42 PM". */
+  label: string
+  device: Device
+  via: 'voice' | 'tap'
 }
 
 export type TelemetryMetric = 'scanToCardMs' | 'doneToAckMs' | 'assessMs'
@@ -132,7 +145,7 @@ export interface ExtraOrder {
 export interface FeedEntry {
   seq: number
   atMs: number
-  /** 'med_given' | 'med_undone' | 'wound_captured' | 'wound_saved' | 'wound_sent' | 'wound_dressing' | 'dr_reply' */
+  /** 'med_given' | 'med_undone' | 'wound_captured' | 'wound_saved' | 'wound_sent' | 'wound_dressing' | 'dr_reply' | 'allergy_ack' | 'handoff_offered' | 'handoff_accepted' */
   kind: string
   device: Device
   patientId?: string
@@ -180,8 +193,11 @@ export type Action =
   | (Base & { type: 'LOG_MED'; patientId: string; medKey: string; via?: MedVia
       /** Nurse confirmed giving a med that is not yet actionable (due in more than 30 min). */
       earlyConfirmed?: boolean
+      /** Nurse confirmed giving a med whose class matches a chart allergy. The glasses never send this (confirm on phone). */
+      allergyConfirmed?: boolean
       /** True when the glasses scan locked this patient (wristband matched); recorded in the feed chain. */
       scanLocked?: boolean })
+  | (Base & { type: 'ALLERGY_ACK'; patientId: string; medKey: string; via?: 'voice' | 'tap' })
   | (Base & { type: 'TELEMETRY_SAMPLE'; metric: TelemetryMetric; ms: number })
   | (Base & { type: 'UNDO_LAST_MED' })
   | (Base & { type: 'RESET_SESSION' })
@@ -210,7 +226,7 @@ export interface ActionResult {
   state: SessionState
   /** Client should drop its local outbox (RESET_SESSION). */
   clearOutbox?: boolean
-  /** LOG_MED refused because the med is not yet due; resend with earlyConfirmed:true to override. */
+  /** LOG_MED refused because the med is not yet due (earlyConfirmed:true overrides) or conflicts with a chart allergy (allergyConfirmed:true overrides). */
   needsConfirm?: boolean
 }
 

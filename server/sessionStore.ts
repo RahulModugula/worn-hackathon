@@ -1,7 +1,7 @@
 import type { Action, ActionResult, DressingType, SessionState, MedStatus, WoundCapture, WoundDressing, FeedEntry, ExtraOrder, TelemetryMetric } from '../shared/types'
-import { DRESSING_INTERVAL_PRESETS, DRESSING_TYPES, NO_AI_REVIEW, SIM_TYPES, TELEMETRY_KEEP, TELEMETRY_METRICS } from '../shared/types'
+import { DRESSING_INTERVAL_PRESETS, DRESSING_TYPES, MAX_ALLERGY_ACKS, NO_AI_REVIEW, SIM_TYPES, TELEMETRY_KEEP, TELEMETRY_METRICS } from '../shared/types'
 import { ACTIONABLE_WINDOW_MIN, hhmmToMinutes, longTime, minutesUntil } from '../shared/clock'
-import { CONFLICT_ORDER } from '../shared/allergy'
+import { CONFLICT_ORDER, checkAllergy } from '../shared/allergy'
 
 export const UNDO_WINDOW_MS = 10_000
 export const MAX_SEEN_IDS = 200
@@ -122,6 +122,18 @@ function recordFeed(s: SessionState, a: Action, now: number, patients?: Patients
       if (a.scanLocked === true) chain.push('Wristband matched')
       chain.push('Nurse confirmed via ' + (a.via ?? a.device))
       if (a.earlyConfirmed === true) chain.push('Early dose confirmed')
+      if (a.allergyConfirmed === true) chain.push('Allergy override confirmed')
+      break
+    }
+    case 'ALLERGY_ACK': {
+      kind = 'allergy_ack'; patientId = a.patientId
+      const med = findMed(s, patients, a.patientId, a.medKey)
+      medName = med?.name
+      const hit = allergyHit(patients, a.patientId, med)
+      chain.push(ownOrders(s, a.patientId)?.some(m => m.id === a.medKey) ? 'New order (simulated prescriber)' : 'Order on chart')
+      chain.push(`Chart lists ${hit?.allergy ?? 'an'} allergy`)
+      chain.push('Shown on glasses')
+      chain.push('Acknowledged via ' + (a.via ?? 'tap'))
       break
     }
     case 'UNDO_LAST_MED': {
@@ -171,6 +183,12 @@ function recordFeed(s: SessionState, a: Action, now: number, patients?: Patients
   if (feed.length > MAX_FEED) feed.shift()
 }
 
+function allergyHit(patients: PatientsData | undefined, patientId: string, med: { name?: string; dose?: string; allergyClasses?: string[] } | undefined) {
+  const p = patients?.patients.find(x => x.id === patientId)
+  if (!p || !med) return null
+  return checkAllergy({ allergies: p.allergies }, { name: med.name ?? '', dose: med.dose, allergyClasses: med.allergyClasses })
+}
+
 function findMed(s: SessionState, patients: PatientsData | undefined, patientId: string, medKey: string) {
   return patients?.patients.find(p => p.id === patientId)?.meds?.find(m => m.id === medKey)
     ?? ownOrders(s, patientId)?.find(m => m.id === medKey)
@@ -213,7 +231,11 @@ function run(s: SessionState, a: Action, now: number, patients?: PatientsData): 
         return { ok: false, conflict: true, message: `Already given ${cur.givenAtLabel ?? ''} via ${cur.via ?? cur.by ?? ''}`.replace(/\s+/g, ' ') }
       }
       const dm = demoMinutes(s, now)
-      const dueAt = findMed(s, patients, a.patientId, a.medKey)?.dueAt
+      const medRec = findMed(s, patients, a.patientId, a.medKey)
+      // An allergy conflict needs a deliberate confirm on every log; acknowledging the alert on the glasses is not consent to give it.
+      const hit = allergyHit(patients, a.patientId, medRec)
+      if (hit && a.allergyConfirmed !== true) return { ok: false, needsConfirm: true, message: `Chart lists ${hit.allergy} allergy` }
+      const dueAt = medRec?.dueAt
       if (dueAt && dm !== null && a.earlyConfirmed !== true) {
         const due = hhmmToMinutes(dueAt)
         if (minutesUntil(due, dm) > ACTIONABLE_WINDOW_MIN) {
@@ -226,6 +248,19 @@ function run(s: SessionState, a: Action, now: number, patients?: PatientsData): 
       }
       s.medStatus[key] = entry
       s.lastMedLog = { key, acceptedAtMs: now, device: a.device }
+      return { ok: true }
+    }
+    case 'ALLERGY_ACK': {
+      const key = `${a.patientId}:${a.medKey}`
+      const med = findMed(s, patients, a.patientId, a.medKey)
+      if (patients && !med) return { ok: false, message: 'Unknown patient or med' }
+      if (patients && !allergyHit(patients, a.patientId, med)) return { ok: false, message: 'No allergy conflict' }
+      const prior = s.allergyAcks?.find(x => x.key === key)
+      if (prior) return { ok: false, conflict: true, message: `Already acknowledged ${prior.label}` }
+      const dm = demoMinutes(s, now)
+      const acks = s.allergyAcks ?? (s.allergyAcks = [])
+      acks.push({ key, atMs: now, label: dm === null ? new Date(now).toISOString() : formatClock(dm), device: a.device, via: a.via ?? 'tap' })
+      while (acks.length > MAX_ALLERGY_ACKS) acks.shift()
       return { ok: true }
     }
     case 'UNDO_LAST_MED': {
@@ -243,7 +278,7 @@ function run(s: SessionState, a: Action, now: number, patients?: PatientsData): 
       fresh.eventSeq = s.eventSeq // monotonic: client cursors must never see seq go backwards
       Object.assign(s, fresh)
       s.events = []
-      delete s.telemetry; delete s.feed; delete s.extraOrders // optional keys survive Object.assign
+      delete s.telemetry; delete s.feed; delete s.extraOrders; delete s.allergyAcks // optional keys survive Object.assign
       return { ok: true, clearOutbox: true }
     }
     case 'TELEMETRY_SAMPLE': {
@@ -408,7 +443,7 @@ export function validateAction(raw: unknown): { action: Action } | { error: stri
   if (typeof o.clientEventId !== 'string' || !o.clientEventId || o.clientEventId.length > 100) return { error: 'bad clientEventId' }
   if (o.device !== 'glasses' && o.device !== 'phone' && o.device !== 'director') return { error: 'bad device' }
   const known = ['START_SHIFT', 'SET_ACTIVE_PATIENT', 'LOG_MED', 'UNDO_LAST_MED', 'RESET_SESSION', 'SET_CLOCK_OFFSET',
-    'WOUND_CAPTURED', 'WOUND_SAVE', 'WOUND_SEND', 'WOUND_RETRY_UPLOAD', 'WOUND_SET_DRESSING', 'DR_REPLY', 'SEND_TO_PHONE', 'SET_GLASSES_NOTICE', 'SET_GLASSES_VIEW', 'TELEMETRY_SAMPLE', ...SIM_TYPES]
+    'WOUND_CAPTURED', 'WOUND_SAVE', 'WOUND_SEND', 'WOUND_RETRY_UPLOAD', 'WOUND_SET_DRESSING', 'DR_REPLY', 'SEND_TO_PHONE', 'SET_GLASSES_NOTICE', 'SET_GLASSES_VIEW', 'TELEMETRY_SAMPLE', 'ALLERGY_ACK', ...SIM_TYPES]
   if (!known.includes(o.type)) return { error: `unknown action type` }
   const str = (k: string) => typeof o[k] === 'string' && (o[k] as string).length <= 200
   const cid = (k: string) => typeof o[k] === 'string' && CAPTURE_ID.test(o[k] as string)
@@ -438,6 +473,11 @@ export function validateAction(raw: unknown): { action: Action } | { error: stri
       if (!str('patientId') || !str('medKey')) return { error: 'bad LOG_MED' }
       if (o.earlyConfirmed !== undefined && typeof o.earlyConfirmed !== 'boolean') return { error: 'bad earlyConfirmed' }
       if (o.scanLocked !== undefined && typeof o.scanLocked !== 'boolean') return { error: 'bad scanLocked' }
+      if (o.allergyConfirmed !== undefined && typeof o.allergyConfirmed !== 'boolean') return { error: 'bad allergyConfirmed' }
+      break
+    case 'ALLERGY_ACK':
+      if (!str('patientId') || !str('medKey')) return { error: 'bad ALLERGY_ACK' }
+      if (o.via !== undefined && o.via !== 'voice' && o.via !== 'tap') return { error: 'bad via' }
       break
     case 'TELEMETRY_SAMPLE':
       if (!(TELEMETRY_METRICS as readonly unknown[]).includes(o.metric)) return { error: 'bad metric' }

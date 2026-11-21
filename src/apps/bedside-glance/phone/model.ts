@@ -6,7 +6,7 @@ import type {
 } from '../../../../shared/types';
 import { hhmmToMinutes, isActionable, longTime, minutesUntil } from '../../../../shared/clock';
 
-export interface Med { id: string; name: string; dose: string; route: string; dueAt: string }
+export interface Med { id: string; name: string; dose: string; route: string; dueAt: string; allergyClasses?: string[] }
 export interface PrnMed { id: string; name: string; dose: string; lastGivenAt: string; intervalHours: number }
 export interface Wound { site: string; lastChangedAt: string; intervalHours: number; note: string; previousPhoto: string }
 export interface Vitals { bp: string; hr: number; tempF: number; spo2: number; takenAt: string; nextAt: string }
@@ -64,8 +64,19 @@ export function givenText(s: MedStatus): string {
 
 export interface MedRow { med: Med; dueMin: number; given: MedStatus | undefined }
 
+/** Chart meds plus Director-injected orders (SIM_ADD_CONFLICT_ORDER), so the phone can show and confirm an allergen order. */
+export function medsWithOrders(p: Patient, state: SessionState | null): Med[] {
+  const extra = state?.extraOrders && Object.hasOwn(state.extraOrders, p.id) ? state.extraOrders[p.id] : [];
+  return [...p.meds, ...extra];
+}
+
+/** The glasses acknowledged this allergy alert: who, and when (demo clock label). */
+export function allergyAcksFor(state: SessionState | null, patientId: string): { key: string; label: string; device: Device }[] {
+  return (state?.allergyAcks ?? []).filter(a => a.key.startsWith(`${patientId}:`)).map(a => ({ key: a.key, label: a.label, device: a.device }));
+}
+
 export function medRows(p: Patient, state: SessionState | null): MedRow[] {
-  return p.meds.map(med => ({ med, dueMin: hhmmToMinutes(med.dueAt), given: medStatusOf(state, p.id, med.id) }));
+  return medsWithOrders(p, state).map(med => ({ med, dueMin: hhmmToMinutes(med.dueAt), given: medStatusOf(state, p.id, med.id) }));
 }
 
 /** Soonest med not yet given, or null when all are given. */

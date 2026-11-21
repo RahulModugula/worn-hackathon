@@ -447,3 +447,22 @@ describe('live acknowledgements on the glasses', () => {
   });
 });
 
+
+describe('allergy flow end to end on the glasses (safety)', () => {
+  it('acknowledge dispatches ALLERGY_ACK, then "done" logs Metformin, never the allergen', async () => {
+    const store = new Store();
+    store.set({ extraOrders: { 'P-1012': [{ id: 'X-1', name: 'Amoxicillin', dose: '250 mg', route: 'PO', dueAt: '13:42', allergyClasses: ['penicillin'] }] } });
+    const voice = fakeVoice();
+    const { container } = render(<Harness store={store} platform={fakePlatform().platform} voice={() => voice.engine} />);
+    await act(async () => { store.sim('SIM_SCAN_RM_12'); });
+    expect(screenOf(container)).toBe('ALLERGY');
+    await act(async () => { voice.say('acknowledge'); });
+    expect(store.actions).toContainEqual(expect.objectContaining({ type: 'ALLERGY_ACK', patientId: 'P-1012', medKey: 'X-1', via: 'voice', device: 'glasses' }));
+    expect(screenOf(container)).toBe('G4');
+    expect(texts(container)).toContain('Metformin 500 mg');
+    await act(async () => { voice.say('done'); });
+    const logs = store.actions.filter((a) => a.type === 'LOG_MED');
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({ medKey: 'M-1' });
+  });
+});

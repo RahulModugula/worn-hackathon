@@ -16,7 +16,7 @@ import {
   screenCopy, type Role, type ScreenCopy,
 } from './copy';
 import {
-  SCREEN_IDS, initialState, type GState, type Patient, type ScreenId,
+  ALLERGY_CONFIRM_PHONE, SCREEN_IDS, initialState, type GState, type Patient, type ScreenId,
 } from './stateMachine';
 
 const ROOT = resolve(__dirname, '../../../..');
@@ -91,7 +91,7 @@ function allCopy(): Case[] {
         for (const offset of [0, 30, 600]) {
           for (const offline of [false, true]) {
             for (const listening of [false, true]) {
-              for (const toast of [null, 'Try "done", "vitals", or "close"', 'Already given 12:59 PM via glasses', 'Heard: send to phone']) {
+              for (const toast of [null, 'Try "done", "vitals", or "close"', 'Already given 12:59 PM via glasses', 'Heard: send to phone', ALLERGY_CONFIRM_PHONE]) {
                 for (const screen of SCREEN_IDS as readonly ScreenId[]) {
                   const s: GState = {
                     ...initialState(patients),

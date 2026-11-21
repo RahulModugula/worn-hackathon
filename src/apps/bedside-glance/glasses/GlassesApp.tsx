@@ -57,6 +57,7 @@ export function sessionCtx(st: SessionState | null): SessionCtx {
     hasLastLog: st.lastMedLog !== null,
     extraOrders: st.extraOrders as Record<string, Med[]> | undefined,
     dressings,
+    allergyAcks: st.allergyAcks?.map((a) => a.key),
   };
 }
 
