@@ -112,6 +112,8 @@ export interface SessionState {
   telemetry?: Partial<Record<TelemetryMetric, number[]>>
   /** Synthetic orders injected by the Director (SIM_ADD_CONFLICT_ORDER), keyed by patient id. */
   extraOrders?: Record<string, ExtraOrder[]>
+  /** Count of injected orders; survives RESET_SESSION so an order id is never reused (a pre-reset ack cannot match a new order). */
+  orderSeq?: number
   /** Verification chain per med/wound event, newest last (bounded). Powers the P4 activity feed. */
   feed?: FeedEntry[]
   /** Allergy alerts a wearer acknowledged on the glasses, so another wearer does not re-alert. Cleared by RESET_SESSION. */

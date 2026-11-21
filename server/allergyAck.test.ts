@@ -115,6 +115,26 @@ describe('ALLERGY_ACK', () => {
   })
 })
 
+describe('ALLERGY_ACK does not survive a reset', () => {
+  it('an offline ack queued for the pre-reset order is rejected after RESET + re-add, which uses a fresh order id', () => {
+    const first = s.extraOrders!['P-1012'][0].id
+    act({ type: 'RESET_SESSION', device: 'director' })
+    addOrder()
+    const second = s.extraOrders!['P-1012'][0].id
+    expect(second).not.toBe(first)
+    const stale = ack({ medKey: first }, T0 + 2000)
+    expect(stale.ok).toBe(false)
+    expect(s.allergyAcks).toBeUndefined()
+    // the fresh alert can still be acknowledged
+    expect(ack({ medKey: second }, T0 + 2100).ok).toBe(true)
+  })
+  it('the first injection is still X-1 and ack of an unknown order fails closed without patient data', () => {
+    expect(s.extraOrders!['P-1012'][0].id).toBe('X-1')
+    const bare = newState('bare2')
+    expect(applyAction(bare, { clientEventId: 'nb2', device: 'glasses', type: 'ALLERGY_ACK', patientId: 'P-1012', medKey: 'X-1', via: 'tap' } as Action, T0).ok).toBe(false)
+  })
+})
+
 describe('allergy override is a phone-only decision', () => {
   it('a glasses LOG_MED with allergyConfirmed:true is refused with a clear message and changes nothing', () => {
     const r = logOrder({ allergyConfirmed: true, device: 'glasses' })

@@ -297,8 +297,8 @@ function run(s: SessionState, a: Action, now: number, patients?: PatientsData): 
     case 'ALLERGY_ACK': {
       const key = `${a.patientId}:${a.medKey}`
       const med = findMed(s, patients, a.patientId, a.medKey)
-      if (patients && !med) return { ok: false, message: 'Unknown patient or med' }
-      if (patients && !allergyHit(patients, a.patientId, med)) return { ok: false, message: 'No allergy conflict' }
+      if (!patients || !med) return { ok: false, message: 'Unknown patient or med' }
+      if (!allergyHit(patients, a.patientId, med)) return { ok: false, message: 'No allergy conflict' }
       const prior = s.allergyAcks?.find(x => x.key === key)
       if (prior) return { ok: false, conflict: true, message: `Already acknowledged ${prior.label}` }
       const dm = demoMinutes(s, now)
@@ -375,6 +375,7 @@ function run(s: SessionState, a: Action, now: number, patients?: PatientsData): 
       fresh.version = s.version
       fresh.glassesViewState = null
       fresh.eventSeq = s.eventSeq // monotonic: client cursors must never see seq go backwards
+      if (s.orderSeq !== undefined) fresh.orderSeq = s.orderSeq // injected order ids are never reused after a reset
       Object.assign(s, fresh)
       s.events = []
       delete s.telemetry; delete s.feed; delete s.extraOrders; delete s.allergyAcks; delete s.handoffs // optional keys survive Object.assign
@@ -477,7 +478,7 @@ function run(s: SessionState, a: Action, now: number, patients?: PatientsData): 
             const dm = demoMinutes(s, now)
             const m = Math.floor(dm ?? 822) % 1440
             const order: ExtraOrder = {
-              id: 'X-1', ...CONFLICT_ORDER, allergyClasses: [...CONFLICT_ORDER.allergyClasses],
+              id: `X-${s.orderSeq = (s.orderSeq ?? 0) + 1}`, ...CONFLICT_ORDER, allergyClasses: [...CONFLICT_ORDER.allergyClasses],
               dueAt: String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'),
             }
             list.push(order)
