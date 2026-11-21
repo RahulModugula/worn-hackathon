@@ -41,7 +41,7 @@ class Store {
   dispatch = (a: Record<string, unknown>) => { this.actions.push(a); return { clientEventId: `id${this.actions.length}` }; };
 }
 
-function Harness(p: { store: Store; platform: PlatformAdapter | null; voice?: () => VoiceEngine; mirror?: boolean; fetchFn?: FetchFn }) {
+function Harness(p: { strictLink?: boolean; store: Store; platform: PlatformAdapter | null; voice?: () => VoiceEngine; mirror?: boolean; fetchFn?: FetchFn }) {
   const [, setN] = useState(0);
   useEffect(() => p.store.subscribe(() => setN((n) => n + 1)), [p.store]);
   const session: SessionLike = {
@@ -50,7 +50,7 @@ function Harness(p: { store: Store; platform: PlatformAdapter | null; voice?: ()
     presence: p.store.presence, subscribeFlushed: p.store.subscribeFlushed,
     synced: p.store.synced, subscribeResults: p.store.subscribeResults,
   };
-  return <GlassesAppCore session={session} platform={p.platform} mirror={p.mirror} createVoice={p.voice} fetchFn={p.fetchFn} />;
+  return <GlassesAppCore session={session} platform={p.platform} mirror={p.mirror} strictLink={p.strictLink} createVoice={p.voice} fetchFn={p.fetchFn} />;
 }
 
 function fakeVoice() {
@@ -583,5 +583,13 @@ describe('chaos drop (director) and the mirror when the glasses go dark', () => 
     cleanup();
     // Display-only flow: the glasses are themselves the mirror and no view was ever pushed.
     expect(strip(mirrorWith({ glasses: 0, phone: 1, director: 1 }, false).container)).not.toContain('Not linked');
+  });
+  it('strictLink (the /stage projector) says Not linked at presence 0 even when no view was ever pushed', () => {
+    const store = new Store();
+    store.presence = { glasses: 0, phone: 1, director: 1 };
+    expect(strip(render(<Harness store={store} platform={null} mirror strictLink />).container)).toContain('Not linked');
+    cleanup();
+    store.presence = { glasses: 1, phone: 1, director: 1 };
+    expect(strip(render(<Harness store={store} platform={null} mirror strictLink />).container)).not.toContain('Not linked');
   });
 });

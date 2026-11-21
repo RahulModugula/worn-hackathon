@@ -42,7 +42,7 @@ export default function StagePage() {
             presence={feed.presence}
             stats={feed.stats}
             ownInstances={feed.ownInstances}
-            hud={<GlassesApp mirror sessionId={sessionId} theme="green" zoom={1} />}
+            hud={<GlassesApp mirror strictLink sessionId={sessionId} theme="green" zoom={1} />}
           />
         </div>
       </div>

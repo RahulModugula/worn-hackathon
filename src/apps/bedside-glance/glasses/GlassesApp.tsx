@@ -135,6 +135,7 @@ export interface GlassesAppCoreProps {
   /** null in mirror mode (no camera, no mic, no input). */
   platform: PlatformAdapter | null;
   mirror?: boolean;
+  strictLink?: boolean;
   /** /glasses?debug=1: latency bar (p50 / max per metric) and the WebView Chrome version. */
   debug?: boolean;
   theme?: HudTheme;
@@ -572,7 +573,8 @@ export function GlassesAppCore(props: GlassesAppCoreProps) {
   if (mirror) {
     // The glasses push their view only while online, so when they drop it freezes. Presence says they are gone:
     // show the frozen view as Not linked. No pushed view yet (display-only flow, glasses ARE the mirror) stays as is.
-    const glassesGone = session.presence?.glasses === 0 && session.state?.glassesViewState != null;
+    // `strictLink` (the /stage projector) drops that condition: the rail beside the HUD says Not linked, so the HUD must too.
+    const glassesGone = session.presence?.glasses === 0 && (props.strictLink === true || session.state?.glassesViewState != null);
     const base = { ...initialState(PATIENTS, ASSIGNED), session: sessionCtx(session.state), offline: session.offline || glassesGone };
     view = fromViewState(session.state?.glassesViewState, base, nowMs) ?? base;
     // Display-only flow: no glasses are pushing a view, but the phone set the patient. Show that card.
@@ -654,6 +656,8 @@ export function TelemetryBar({ samples, ua }: { samples: Record<TelemetryMetric,
 
 export interface GlassesAppProps {
   mirror?: boolean;
+  /** Mirror only: show Not linked whenever presence.glasses is 0, even if the glasses never pushed a view. Used by /stage. */
+  strictLink?: boolean;
   debug?: boolean;
   sessionId?: string;
   theme?: HudTheme;
