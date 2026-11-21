@@ -16,8 +16,8 @@ Source rule: **only say numbers from the "Sourced numbers" table, and say assump
 |---|---|---|
 | Documentation burden | acute-care nurses averaged 4.7 h of EMR documentation per 12-h shift (study year not verified) | escholarship.org/content/qt08x7j3f7/qt08x7j3f7.pdf |
 | Flowsheets share of shift | 31% of a 12-h shift (JMIR Nursing 2025) | nursing.jmir.org/2025/1/e69651 |
-| Medication errors | median 19.6% of opportunities for error with wrong-time errors counted, 8.0% without (91 observation studies; Keers 2013, Ann Pharmacother; read 2026-11-21) | europepmc.org (PMID 23386063); psnet.ahrq.gov summary |
-| Barcode scanning gap | workarounds in 66% of administrations in BCMA hospitals; 36% skipped scanning (multicenter study) | pubmed.ncbi.nlm.nih.gov/32043705 |
+| Medication errors | roughly one in five observed doses, mostly timing errors (Keers 2013, Ann Pharmacother 47(2):237-256; secondary summary, the 19.6% / 8.0% figures are unverified and not used) | psnet.ahrq.gov summary |
+| Barcode scanning gap | workarounds in 66% of administrations per the abstract (results table: 63%); 36% of workarounds were procedural, such as not scanning at all (van der Veen et al., JAMIA 2018;25(4):385-392) | pmc.ncbi.nlm.nih.gov/articles/PMC7646849 |
 | Interruptions | 53.1% of administrations were interrupted (2010) | sciencedaily.com/releases/2010/04/100426181958.htm |
 | Turnover cost | $60,090 per bedside RN; 17.6% turnover; 8.6% vacancy (NSI 2026, CY2025 data) | nsinursingsolutions.com NSI National Health Care Retention Report |
 | Workforce | 3,465,400 US RN jobs (2025); ~59% in hospitals | bls.gov/ooh/healthcare/registered-nurses.htm |

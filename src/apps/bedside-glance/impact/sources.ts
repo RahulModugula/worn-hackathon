@@ -33,18 +33,18 @@ export const PUBLISHED: Stat[] = [
   {
     id: 'medError',
     label: 'Observed doses with a medication error (median)',
-    value: '20.1%',
+    value: 'About 1 in 5',
     badge: 'SOURCED',
     source: 'psnet.ahrq.gov, "prevalence and nature of medication administration errors" (Keers 2013)',
-    note: 'Mostly timing errors.',
+    note: 'Mostly timing errors. Secondary summary; exact figures not verified at the primary source.',
   },
   {
     id: 'barcode',
     label: 'Administrations with barcode-scanning workarounds',
     value: '66%',
     badge: 'SOURCED',
-    source: 'pubmed.ncbi.nlm.nih.gov/32043705 (multicenter study)',
-    note: '36% skipped scanning.',
+    source: 'pmc.ncbi.nlm.nih.gov/articles/PMC7646849 (van der Veen et al., JAMIA 2018)',
+    note: 'Abstract says 66% (results table: 63%). 36% of workarounds were procedural, such as not scanning.',
   },
   {
     id: 'interrupted',

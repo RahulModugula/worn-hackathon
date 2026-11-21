@@ -17,8 +17,8 @@ Glance on the glasses, depth on the phone. Built for the Worn Smart Glasses Hack
 Sourced figures (read 2026-11-21; several are secondary summaries, so treat them as published estimates):
 
 - Medication passes are interrupted constantly: 53.1% of 4,271 observed administrations were interrupted, and each interruption was linked to a 12.1% rise in procedural failures and a 12.7% rise in clinical errors (Westbrook et al., Archives of Internal Medicine, 2010).
-- Observed medication-administration error: median 19.6% of opportunities for error across 91 direct-observation studies when wrong-time errors are counted, 8.0% when they are excluded (Keers et al. 2013, Ann Pharmacother, abstract read 2026-11-21 via Europe PMC; the denominator is opportunities for error, not only doses, and timing errors are a large share).
-- Barcode scanning is bypassed: workarounds in 66% of administrations, scanning skipped in 36% (multicenter study of barcode-medication-administration hospitals).
+- Observed medication-administration error: roughly one in five observed doses in direct-observation studies, and most of those are timing errors (Keers et al. 2013, Ann Pharmacother 47(2):237-256, via secondary summaries such as AHRQ PSNet). The specific figures sometimes quoted (19.6% and 8.0% without wrong-time errors) could not be verified at the primary source, so we do not use them.
+- Barcode scanning is bypassed: the abstract reports workarounds in 66% of administrations (its results table gives 3,633 of 5,793, about 63%), and 36% of the workarounds were procedural ones such as not scanning at all (van der Veen et al., J Am Med Inform Assoc 2018;25(4):385-392, online 2017, PMC7646849, read 2026-11-21).
 - Charting competes with patients: 79% of acute-care nurses report losing time each week to charting they call unproductive (KLAS/Arch, 2025, n=80,147; self-reported survey).
 - Losing a bedside nurse costs about $60,090 (NSI National Health Care Retention Report, 2026).
 
