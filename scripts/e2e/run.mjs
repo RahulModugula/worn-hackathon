@@ -4,6 +4,7 @@ import {
   CANVAS, GLASSES_VP, IPHONE_UA, OLD_CHROME_UA, PHONE_VP, clickButton, clickMedRow, closeDrawer, directorTap, launchBrowser,
   openPage, sleep, startServer, unexpectedProblems, waitForScreen, waitForText, currentScreen,
 } from './lib.mjs';
+import { runStageFlow } from './stage.mjs';
 
 const results = [];
 async function check(name, fn) {
@@ -213,6 +214,16 @@ async function main() {
       await old.page.close();
       if (p.length) throw new Error(p.slice(0, 3).map((x) => `${x.kind}: ${x.text}`).join(' | '));
       return `screen G1 rendered; UA ${ua.includes('Chrome/69') ? 'Chrome/69' : 'set'}; 0 console errors`;
+    });
+    await check('10. /stage live: Linked + devices in sync, chaos shows Not linked (rail and HUD agree), replay 0 lost, handoff chain', async () => {
+      const o = await runStageFlow(browser, srv.base, `${sid}-stage`);
+      if (!/Not linked · down \d+ s/.test(o.chaosLink)) throw new Error(`chaos link text: ${o.chaosLink}`);
+      if (!/Not linked/.test(o.chaosChip)) throw new Error(`chip: ${o.chaosChip}`);
+      if (!/Not linked/.test(o.stageHudStrip)) throw new Error(`stage HUD strip: ${o.stageHudStrip}`);
+      if (!/\d+ replayed · queued [\d.]+ s · 0 lost/.test(o.replay)) throw new Error(`replay: ${o.replay}`);
+      const bad = unexpectedProblems(o.problems);
+      if (bad.length) throw new Error(bad.slice(0, 3).map((x) => `${x.kind}: ${x.text}`).join(' | '));
+      return `${o.chaosLink}; ${o.replay}`;
     });
     void currentScreen; // exported helper kept for ad-hoc debugging
   } finally {

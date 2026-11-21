@@ -27,6 +27,10 @@ describe('simHandling: Director commands become the events real inputs produce',
     }
   });
 
+  it('SIM_ACKNOWLEDGE is the voice "acknowledge" twin and logs the allergen never', () => {
+    expect(simHandling('SIM_ACKNOWLEDGE', base())!.events).toEqual([{ type: 'intent', intent: 'acknowledge' }]);
+  });
+
   it('SIM_CAPTURE_WOUND loads Rm 12 first only when no patient is loaded, and flags the fallback photo', () => {
     const cold = simHandling('SIM_CAPTURE_WOUND', base())!;
     expect(cold.simCapture).toBe(true);

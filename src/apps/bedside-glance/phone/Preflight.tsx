@@ -33,6 +33,20 @@ export interface PreflightInput {
 export type RowStatus = 'ok' | 'fail' | 'info' | 'fallback';
 export interface PreflightRow { id: string; label: string; status: RowStatus; detail: string }
 
+export interface StageCheck { id: string; label: string; ok: boolean; fix: string }
+
+/** Pre-stage checklist: what the 3-minute arc needs before the opening beat. `phones` counts this Director phone too. */
+export function computeStageChecks(input: { extraOrdersPresent?: boolean; presence: Record<string, number>; directorSelf: boolean }): StageCheck[] {
+  const { presence, directorSelf } = input;
+  const phones = (presence.phone ?? 0) + (directorSelf ? 1 : 0);
+  return [
+    { id: 'orders', label: 'Allergy order', ok: input.extraOrdersPresent === true, fix: 'Press "Reset to pre-stage" (or Add Conflicting Order) so the allergy alert is real.' },
+    { id: 'glasses', label: 'Glasses', ok: (presence.glasses ?? 0) > 0, fix: 'Open the Worn app on the glasses, or use /glasses on the laptop as the fallback.' },
+    { id: 'phones', label: 'Two phones', ok: phones >= 2, fix: 'Open /phone?nurse=N-02 on the second phone (Marcus) for the handoff.' },
+    { id: 'director', label: 'Director', ok: directorSelf || (presence.director ?? 0) > 0, fix: 'Open /phone?director=1 on the offstage phone.' },
+  ];
+}
+
 /** Plain-English browser name from the user agent, e.g. "Chrome 131 on Android" or "Safari 18 on iOS 18". */
 export function browserLabel(ua: string): string {
   const os = /iPhone|iPad/.test(ua)
@@ -189,13 +203,14 @@ interface PreflightProps {
   presence: Record<string, number>;
   directorSelf: boolean;
   telemetry: SessionState['telemetry'];
+  extraOrdersPresent?: boolean;
   /** Test seams. */
   fetchHealth?: () => Promise<Health>;
   env?: PreflightEnv;
 }
 
 /** Director preflight: green and red rows for what the demo needs, plus a copy button for teammates. */
-export function Preflight({ sessionId, connected, presence, directorSelf, telemetry, fetchHealth = defaultHealth, env }: PreflightProps) {
+export function Preflight({ sessionId, connected, presence, directorSelf, telemetry, extraOrdersPresent, fetchHealth = defaultHealth, env }: PreflightProps) {
   const [health, setHealth] = useState<HealthState>('loading');
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
   const [manual, setManual] = useState<string | null>(null);
@@ -208,6 +223,7 @@ export function Preflight({ sessionId, connected, presence, directorSelf, teleme
   }, [fetchHealth]);
 
   const rows = computePreflight({ env: deviceEnv, health, connected, presence, directorSelf, telemetry });
+  const checks = computeStageChecks({ extraOrdersPresent, presence, directorSelf });
   const problems = rows.filter(r => r.status === 'fail').length;
   const fallbacks = rows.filter(r => r.status === 'fallback').length;
 
@@ -230,6 +246,14 @@ export function Preflight({ sessionId, connected, presence, directorSelf, teleme
           <Chip tone="danger" icon="alert">{problems} to fix{fallbacks > 0 ? ` · ${fallbacks} on fallback` : ''}</Chip>
         )}
       </div>
+      <ul className="ph-chips" aria-label="Pre-stage checklist">
+        {checks.map(k => (
+          <li key={k.id} data-check={k.id} data-ok={k.ok}>
+            <Chip tone={k.ok ? 'accent' : 'danger'} icon={k.ok ? 'check-circle' : 'alert'}>{k.label}</Chip>
+            {!k.ok && <span className="ph-muted ph-pf-detail"> {k.fix}</span>}
+          </li>
+        ))}
+      </ul>
       <ul className="ph-pf-list">
         {rows.map(r => (
           <li key={r.id} className={`ph-pf ph-pf-${r.status}`} data-status={r.status}>

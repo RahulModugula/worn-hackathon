@@ -15,12 +15,13 @@ const DIST = join(ROOT, 'dist');
 const BUDGET_GZIP_JS_BYTES = 140000; // 121192 x 1.15 ~ 139370, rounded up
 const BUDGET_GZIP_CSS_BYTES = 2010; // HUD redesign 2026-11-21 (icons, asides, progress, 5 type roles): measured 1746 B gzip x 1.15 ~ 2008, rounded up. The Nunito woff2 (39 KB) is a font file, not counted here.
 
-// Strings that exist only in the lazy /phone, /impact and /qr chunks. Each must be
+// Strings that exist only in the lazy /phone, /impact, /qr and /stage chunks. Each must be
 // present in some non-entry chunk (so the sentinel is valid) and absent from /glasses.
 const FORBIDDEN_IN_GLASSES = {
   phone: ['Compared with previous', 'Wound photo ready for review'],
   impact: ['Where the numbers come from', 'Loaded cost per nurse per year'],
   qr: ['qr-sheet'],
+  stage: ['On-glasses latency not measured'],
 };
 
 const failures = [];
