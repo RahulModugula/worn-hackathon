@@ -283,6 +283,13 @@ async function webCaptures(browser, base) {
   await shot(imp.page, imp.page, 'impact-390x844', { dsf: 2, fallbackDsf: 1.5 });
   await imp.page.close();
 
+  // Stage projector page, no glasses connected: the Not linked state.
+  const stg = await openPage(browser, { viewport: { width: 1280, height: 720, deviceScaleFactor: 1 } });
+  await stg.page.goto(`${base}/stage?session=shots-stage-${Date.now().toString(36)}`, { waitUntil: 'domcontentloaded' });
+  await sleep(1500);
+  await shot(stg.page, stg.page, 'stage-1280x720', { dsf: 1, fallbackDsf: 1 });
+  await stg.page.close();
+
   const qr = await openPage(browser, { viewport: { width: 794, height: 1123, deviceScaleFactor: 1 } });
   await qr.page.goto(`${base}/qr`, { waitUntil: 'domcontentloaded' });
   await sleep(800);

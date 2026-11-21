@@ -1,28 +1,56 @@
-# Demo script (3 minutes, stage) and 90-second table version
+# Demo script: 3:00 stage arc and 90 s table cut
 
-All data is synthetic. Nothing here has been run on real M6 glasses; the glasses beats work through the Director drawer or `/glasses?mirror=1` projected if hardware is unavailable. Say so plainly if asked.
+All data is synthetic. Say so first if asked. Everything on `/stage` is measured on this network, now; on-glasses latency is not measured.
 
-## Before you start (2 minutes)
-1. `npm run build && npm start`; open the printed LAN URL on the phone, `/glasses?mirror=1` on the projector, Director drawer > Preflight shows green.
-2. Director > Reset demo (press and hold). Confirm the HUD shows the idle card.
-3. Have the recorded run open in another tab as the fallback.
+## Roles
+- **Priya** (presenter): wears the glasses, speaks the voice cues. Her name is the signed-in nurse on the glasses.
+- **Marcus**: holds a phone opened at `/phone?nurse=N-02` and accepts the handoff (the nurse query comes with the handoff UI lane; until it lands, any second `/phone` is Marcus).
+- **Director** (offstage): a phone at `/phone?director=1`. Every voice cue has a numbered twin button in Director > Stage beats.
+- Projector: `/stage` (the glasses mirror at left, sync health at right). Laptop `/glasses?mirror=1` is the fallback.
 
-## 3-minute stage cut
-| Time | Beat | Say | Do |
+## Pre-stage (5 minutes, in this order)
+1. `npm run build && npm start`; open the printed LAN or Render URL on every device. Projector: `/stage`.
+2. Director > Preflight: all four chips (Allergy order, Glasses, Two phones, Director) green; the rest green or amber.
+3. Director > Stage beats > press and hold **Reset to pre-stage** (1.2 s). It runs reset, start shift, add conflicting order. Check the HUD shows the idle card and the Allergy order chip turns green.
+4. Priya scans Rm 12 once to confirm the glasses are linked; the chip row stays green. Then Reset to pre-stage again so the stage starts clean.
+5. Recorded video open in another tab (see Fallbacks).
+
+## 3:00 stage arc
+| Time | Beat | Say | Do (voice, with Director twin) |
 |---|---|---|---|
-| 0:00 | Problem | One sourced stat, then the character: a fictional nurse on a medication pass. | Phone on My shift. |
-| 0:20 | What it is | One sentence: hands-free bedside medication check on glasses, synced to the phone. | Show HUD idle. |
-| 0:40 | Scan | Wristband scan opens the patient in under 2 s. | Scan or Director > Scan wristband. |
-| 1:00 | Meds | Due meds, allergy bar fixed, nothing in the center of the view. | Point at HUD card. |
-| 1:20 | Done | "Done" on glasses, phone updates (target under 1 s; measured only as server ack on localhost, on-glasses latency unmeasured; do not claim a number). | Say or tap Done. |
-| 1:40 | Conflict + undo | A second device tries the same dose: first write wins, either can undo for 10 s. | Director > Conflict. |
-| 2:00 | Wound handoff | Photo, draft for clinician review, send to attending. | Wound tab. |
-| 2:20 | Offline | Drop the network, log a dose, reconnect, it syncs once. | Director > Offline. |
-| 2:35 | Who pays | /impact page: the break-even math and the assumption it rests on. | Open /impact. |
-| 2:50 | Ask | One sentence ask, then stop. | |
+| 0:00 to 0:35 | OPENING: allergy catch | "A new order lands for Maria. The chart says penicillin allergy. The glasses catch it before the hand does." | Scan Rm 12; Critical Allergy shows. Priya says "acknowledge". Twin: **1 Acknowledge allergy**. Then "done": it logs the next real med, never the allergen. |
+| 0:35 to 1:15 | MIDDLE A: chaos, dead-zone dose | "Now the elevator. No signal." | Twin: **2 Chaos: link down + done** (8 s). The rail shows Not linked and a down timer; Priya says "done" (queued, offline); the link returns and the Replay line fills in: replayed count, queued seconds, 0 lost only when every device is converged. |
+| 1:15 to 1:55 | MIDDLE B: shift-change handoff | "Shift change. Priya hands Rm 12 to Marcus." | Priya says "hand off". Twin: **3 Hand off Rm 12**. Marcus reads back the critical items on his phone and accepts; the glasses show Handoff accepted. The summary is built from the shift log, not by AI. |
+| 1:55 to 2:30 | Who pays | "Hospitals pay for minutes." | Open `/impact`: the break-even math and the assumption it rests on. |
+| 2:30 to 2:50 | CLOSING: "Already given via glasses" | "Marcus tries the dose Priya already gave. First write wins." | On Marcus's phone, tap the med Priya logged: `Already given {time} via glasses`. The rail Conflicts line names the device that won. |
+| 2:50 to 3:00 | Ask | One sentence ask, then stop. | |
 
-## 90-second table cut
-Problem (15 s) > scan + meds (25 s) > done + conflict/undo (25 s) > who pays (15 s) > ask (10 s). Hand the phone to the reviewer for the Done tap.
+## 90 s table cut
+| Time | Beat | Do |
+|---|---|---|
+| 0:00 to 0:25 | Allergy catch | Scan, "acknowledge" (twin 1), "done" logs the safe med. |
+| 0:25 to 0:55 | Dead-zone dose | Twin 2; point at Link and Replay on `/stage`. |
+| 0:55 to 1:15 | Handoff | Twin 3; the reviewer taps Accept on Marcus's phone. |
+| 1:15 to 1:30 | Who pays + ask | `/impact`, one sentence ask. |
 
-## If something breaks
-Use the Director drawer without apologising, then the recorded run. Never blame the network first.
+## Voice cue and Director twin
+| Voice | Twin button | Sends |
+|---|---|---|
+| "acknowledge" | 1 Acknowledge allergy | `SIM_ACKNOWLEDGE` |
+| "done" with no signal | 2 Chaos: link down + done | `SIM_CHAOS_DROP` `{ms: 8000, thenDone: true}` |
+| "hand off" | 3 Hand off Rm 12 | `SIM_HANDOFF_OFFER` to N-02 |
+
+## Fallbacks
+- Glasses will not connect: project the laptop `/glasses?mirror=1`, or `/stage` with the Director twins; keep going, do not apologise.
+- Any beat stalls for 3 seconds: press its twin. Do not repeat the voice cue.
+- Projector or network dies: play the recorded video. Record the 3:00 arc and the 90 s cut ahead of time, each captioned `Recorded {date}; synthetic data`. Say it is a recording.
+
+## Honesty lines
+Say: "Synthetic patients." "These numbers are measured on this network, right now." "The handoff summary is built from the shift log with fixed rules."
+Never claim:
+- on-glasses latency (not measured; the rail shows server-ack timing only);
+- error reduction or any clinical outcome;
+- real patients or real hospital data;
+- authentication or HIPAA-grade security (the demo has none beyond the Director key);
+- that I-PASS evidence applies to nurses: the published I-PASS results are from physician residents;
+- that the summary is AI-generated.
