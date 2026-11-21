@@ -1,0 +1,5 @@
+{
+  "_note": "Reviewed exceptions for scripts/guard.mjs. Only the lead edits this file (see .github/CODEOWNERS).",
+  "hosts": ["googleapis.com", "deepgram.com", "api.deepgram.com", "generativelanguage.googleapis.com"],
+  "injection": []
+}
