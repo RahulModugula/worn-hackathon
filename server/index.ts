@@ -233,7 +233,7 @@ export function createApp(opts: ServerOptions = {}) {
   // Serve the built SPA whenever dist/ exists. No NODE_ENV needed: `npm start` must work on Windows too.
   if (existsSync(dist)) {
     app.use(express.static(dist))
-    app.get('/{*splat}', (_req, res) => res.sendFile(path.join(dist, 'index.html')))
+    app.get('/{*splat}', (_req, res) => res.sendFile('index.html', { root: dist }))
   }
   const dispose = () => { clearInterval(pinger); for (const tm of replyTimers.values()) clearTimeout(tm); replyTimers.clear() }
   return { app, http, wss, dispose }
