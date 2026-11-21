@@ -35,6 +35,20 @@ describe('simHandling: Director commands become the events real inputs produce',
     expect(loaded.events.map((e) => e.type)).toEqual(['intent']);
   });
 
+  it('SIM_HANDOFF_OFFER loads Rm 12 first only when no patient is loaded, then offers with the director payload', () => {
+    const cold = simHandling('SIM_HANDOFF_OFFER', base(), { toNurseId: 'N-02', severity: 'Watch' })!;
+    expect(cold.events.map((e) => e.type)).toEqual(['scanLock', 'handoffOffer']);
+    expect(cold.events[1]).toEqual({ type: 'handoffOffer', toNurseId: 'N-02', severity: 'Watch' });
+    const loaded = simHandling('SIM_HANDOFF_OFFER', { ...base(), patientId: PATIENTS[0].id }, undefined)!;
+    expect(loaded.events).toEqual([{ type: 'handoffOffer' }]);
+  });
+
+  it('SIM_CHAOS_DROP replays a chaos event with the validated payload; a bad payload replays nothing', () => {
+    expect(simHandling('SIM_CHAOS_DROP', base(), { ms: 5000, thenDone: true })!.chaos).toEqual({ ms: 5000, thenDone: true });
+    expect(simHandling('SIM_CHAOS_DROP', base(), { ms: 5000 })!.chaos).toEqual({ ms: 5000, thenDone: false });
+    for (const bad of [undefined, {}, { ms: 10 }, { ms: 99999 }, { ms: 'x' }]) expect(simHandling('SIM_CHAOS_DROP', base(), bad)!.chaos).toBeUndefined();
+  });
+
   it('data-driven and server-answered commands replay nothing; unknown commands return null', () => {
     for (const t of ['SIM_FAIL_PHOTO_UPLOAD', 'SIM_ADD_CONFLICT_ORDER', 'SIM_CLOCK_PLUS_30', 'SIM_DR_REPLY']) {
       expect(simHandling(t, base())).toEqual({ events: [] });

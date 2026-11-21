@@ -131,6 +131,28 @@ async function main() {
       return `phone reset in ${ms} ms, glasses cleared in ${msAll} ms`;
     });
 
+    await check('6b. Allergy: conflicting order -> acknowledge -> "done" never logs the allergen (confirm on phone)', async () => {
+      await directorTap(P, 'Start Shift');
+      await directorTap(P, 'Sim Scan Rm 12');
+      await waitForText(G, 'Metformin', { scope: CANVAS, timeout: 5000 });
+      await directorTap(P, 'Add Conflicting Order');
+      await waitForScreen(G, 'ALLERGY', 5000);
+      await waitForText(G, 'Amoxicillin', { scope: CANVAS, timeout: 3000 });
+      // Headless Chrome has no microphone, so the preview hotkey stands in for saying "acknowledge".
+      await G.keyboard.press('k');
+      await waitForScreen(G, 'G4', 5000);
+      await waitForText(G, 'Metformin', { scope: CANVAS, timeout: 3000 }); // the real med is the hero, not the allergen
+      await directorTap(P, 'Voice: Done'); // logs Metformin
+      await P.waitForFunction(() => [...document.querySelectorAll('.ph-med-given')].some((el) => el.textContent.includes('glasses')), { timeout: 5000, polling: 25 });
+      await waitForScreen(G, 'G5', 3000);
+      await waitForScreen(G, 'G4', 6000); // G5 fades after 3 s; the acknowledged allergen is the only med left
+      await directorTap(P, 'Voice: Done'); // would log Amoxicillin before the fix
+      await waitForText(G, 'Allergy \u00b7 confirm on phone', { scope: CANVAS, timeout: 3000 });
+      const logged = await P.evaluate(() => [...document.querySelectorAll('.ph-med-given')].map((el) => el.textContent).join(' | '));
+      if (/Amoxicillin/.test(logged)) throw new Error('allergen was logged: ' + logged);
+      return 'Metformin first, then the toast "Allergy · confirm on phone"; Amoxicillin never logged';
+    });
+
     await check('7. Text-overflow + clear-zone audit on glasses screens', async () => {
       const seen = [];
       const violations = [];

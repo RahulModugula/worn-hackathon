@@ -23,6 +23,10 @@ class Store {
   state: SessionState | null = baseSession();
   offline = false;
   synced: boolean | undefined = undefined;
+  presence: Record<string, number> | undefined = undefined;
+  forceCalls: boolean[] = [];
+  flushed = new Set<(e: { clientEventId: string; queuedMs: number; action: { type: string } }) => void>();
+  subscribeFlushed = (cb: (e: { clientEventId: string; queuedMs: number; action: { type: string } }) => void) => { this.flushed.add(cb); return () => { this.flushed.delete(cb); }; };
   results = new Set<(r: ResultLike) => void>();
   subscribeResults = (cb: (r: ResultLike) => void) => { this.results.add(cb); return () => { this.results.delete(cb); }; };
   emitResult(r: ResultLike) { this.results.forEach((f) => f(r)); }
@@ -30,9 +34,9 @@ class Store {
   private subs = new Set<() => void>();
   subscribe = (f: () => void) => { this.subs.add(f); return () => { this.subs.delete(f); }; };
   set(patch: Partial<SessionState>) { this.state = { ...this.state!, ...patch }; this.subs.forEach((f) => f()); }
-  sim(type: string) {
+  sim(type: string, detail?: unknown) {
     const seq = this.state!.eventSeq + 1;
-    this.set({ eventSeq: seq, events: [...this.state!.events, { seq, atMs: Date.now() + seq, type, device: 'director' }] });
+    this.set({ eventSeq: seq, events: [...this.state!.events, { seq, atMs: Date.now() + seq, type, device: 'director', ...(detail !== undefined ? { detail } : {}) }] });
   }
   dispatch = (a: Record<string, unknown>) => { this.actions.push(a); return { clientEventId: `id${this.actions.length}` }; };
 }
@@ -42,7 +46,8 @@ function Harness(p: { store: Store; platform: PlatformAdapter | null; voice?: ()
   useEffect(() => p.store.subscribe(() => setN((n) => n + 1)), [p.store]);
   const session: SessionLike = {
     state: p.store.state, offline: p.store.offline, forceOffline: false, outbox: [], conflicts: [],
-    dispatch: p.store.dispatch as SessionLike['dispatch'], setForceOffline: () => undefined,
+    dispatch: p.store.dispatch as SessionLike['dispatch'], setForceOffline: (v: boolean) => { p.store.forceCalls.push(v); },
+    presence: p.store.presence, subscribeFlushed: p.store.subscribeFlushed,
     synced: p.store.synced, subscribeResults: p.store.subscribeResults,
   };
   return <GlassesAppCore session={session} platform={p.platform} mirror={p.mirror} createVoice={p.voice} fetchFn={p.fetchFn} />;
@@ -412,7 +417,7 @@ describe('glasses send and telemetry', () => {
   });
   it('TelemetryBar shows p50, max and the Chrome version', () => {
     const { container } = render(
-      <TelemetryBar samples={{ scanToCardMs: [100, 300, 200], doneToAckMs: [], assessMs: [] }} ua="Mozilla/5.0 (Linux; Android 11) Chrome/69.0.3497.100 Mobile Safari/537.36" />,
+      <TelemetryBar samples={{ scanToCardMs: [100, 300, 200], doneToAckMs: [], assessMs: [], outboxQueuedMs: [] }} ua="Mozilla/5.0 (Linux; Android 11) Chrome/69.0.3497.100 Mobile Safari/537.36" />,
     );
     const t = container.querySelector('[data-telemetry-bar]')!.textContent!;
     expect(t).toContain('scan>card p50 200 max 300 ms (n=3)');
@@ -447,3 +452,136 @@ describe('live acknowledgements on the glasses', () => {
   });
 });
 
+
+describe('allergy flow end to end on the glasses (safety)', () => {
+  it('acknowledge dispatches ALLERGY_ACK, then "done" logs Metformin, never the allergen', async () => {
+    const store = new Store();
+    store.set({ extraOrders: { 'P-1012': [{ id: 'X-1', name: 'Amoxicillin', dose: '250 mg', route: 'PO', dueAt: '13:42', allergyClasses: ['penicillin'] }] } });
+    const voice = fakeVoice();
+    const { container } = render(<Harness store={store} platform={fakePlatform().platform} voice={() => voice.engine} />);
+    await act(async () => { store.sim('SIM_SCAN_RM_12'); });
+    expect(screenOf(container)).toBe('ALLERGY');
+    await act(async () => { voice.say('acknowledge'); });
+    expect(store.actions).toContainEqual(expect.objectContaining({ type: 'ALLERGY_ACK', patientId: 'P-1012', medKey: 'X-1', via: 'voice', device: 'glasses' }));
+    expect(screenOf(container)).toBe('G4');
+    expect(texts(container)).toContain('Metformin 500 mg');
+    await act(async () => { voice.say('done'); });
+    const logs = store.actions.filter((a) => a.type === 'LOG_MED');
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({ medKey: 'M-1' });
+  });
+});
+
+describe('handoff on the glasses', () => {
+  it('SIM_HANDOFF_OFFER with a payload makes the glasses dispatch HANDOFF_OFFER (so the chain credits the glasses), loading Rm 12 first', async () => {
+    const store = new Store();
+    const { container } = render(<Harness store={store} platform={fakePlatform().platform} voice={() => fakeVoice().engine} />);
+    await act(async () => { store.sim('SIM_HANDOFF_OFFER', { toNurseId: 'N-02', severity: 'Watch' }); });
+    expect(screenOf(container)).toBe('G4');
+    expect(store.actions).toContainEqual(expect.objectContaining({ type: 'HANDOFF_OFFER', patientId: 'P-1012', toNurseId: 'N-02', severity: 'Watch', device: 'glasses' }));
+  });
+  it('saying "hand off" offers once; the server notice then shows on G9', async () => {
+    const store = new Store();
+    const voice = fakeVoice();
+    const { container } = render(<Harness store={store} platform={fakePlatform().platform} voice={() => voice.engine} />);
+    await act(async () => { store.sim('SIM_SCAN_RM_12'); });
+    await act(async () => { voice.say('hand off'); });
+    expect(store.actions.filter((a) => a.type === 'HANDOFF_OFFER')).toHaveLength(1);
+    await act(async () => { store.set({ glassesNotice: { text: 'Handoff accepted · Marcus T.', kind: 'handoff', atMs: Date.now() } }); });
+    expect(screenOf(container)).toBe('G9');
+    expect(texts(container)).toContain('Handoff accepted · Marcus T.');
+  });
+  it('a refused offer is toasted from the server ack', async () => {
+    const store = new Store();
+    const voice = fakeVoice();
+    const { container } = render(<Harness store={store} platform={fakePlatform().platform} voice={() => voice.engine} />);
+    await act(async () => { store.sim('SIM_SCAN_RM_12'); });
+    await act(async () => { voice.say('hand off'); });
+    const sent = store.actions.find((a) => a.type === 'HANDOFF_OFFER')!;
+    await act(async () => { store.emitResult({ clientEventId: 'id' + (store.actions.indexOf(sent) + 1), ok: false, message: 'Handoff already offered', action: { type: 'HANDOFF_OFFER' } }); });
+    expect(texts(container)).toContain('Handoff already offered');
+  });
+});
+
+describe('chaos drop (director) and the mirror when the glasses go dark', () => {
+  it('SIM_CHAOS_DROP: offline now, "done" 1.5 s later while offline, online again after ms (client timers only)', async () => {
+    vi.useFakeTimers();
+    try {
+      const store = new Store();
+      const voice = fakeVoice();
+      render(<Harness store={store} platform={fakePlatform().platform} voice={() => voice.engine} />);
+      await act(async () => { store.sim('SIM_SCAN_RM_12'); });
+      await act(async () => { store.sim('SIM_CHAOS_DROP', { ms: 6000, thenDone: true }); });
+      expect(store.forceCalls).toEqual([true]);
+      expect(store.actions.some((a) => a.type === 'LOG_MED')).toBe(false);
+      await act(async () => { vi.advanceTimersByTime(1400); });
+      expect(store.actions.some((a) => a.type === 'LOG_MED')).toBe(false);
+      await act(async () => { vi.advanceTimersByTime(200); });
+      expect(store.actions.filter((a) => a.type === 'LOG_MED')).toHaveLength(1);
+      expect(store.forceCalls).toEqual([true]); // still offline
+      await act(async () => { vi.advanceTimersByTime(4300); });
+      expect(store.forceCalls).toEqual([true]); // 5.9 s in: still dark
+      await act(async () => { vi.advanceTimersByTime(200); });
+      expect(store.forceCalls).toEqual([true, false]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it('without thenDone nothing is logged; an out-of-range ms does nothing; a second drop restarts the timers', async () => {
+    vi.useFakeTimers();
+    try {
+      const store = new Store();
+      render(<Harness store={store} platform={fakePlatform().platform} voice={() => fakeVoice().engine} />);
+      await act(async () => { store.sim('SIM_SCAN_RM_12'); });
+      await act(async () => { store.sim('SIM_CHAOS_DROP', { ms: 100 }); });
+      expect(store.forceCalls).toEqual([]);
+      await act(async () => { store.sim('SIM_CHAOS_DROP', { ms: 3000 }); });
+      await act(async () => { vi.advanceTimersByTime(2000); });
+      await act(async () => { store.sim('SIM_CHAOS_DROP', { ms: 3000 }); });
+      await act(async () => { vi.advanceTimersByTime(2500); });
+      expect(store.forceCalls.filter((v) => v === false)).toHaveLength(0); // the first drop's recovery was cancelled
+      await act(async () => { vi.advanceTimersByTime(600); });
+      expect(store.forceCalls.at(-1)).toBe(false);
+      expect(store.actions.some((a) => a.type === 'LOG_MED')).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it('a flushed offline action is sampled as outboxQueuedMs and reported even though the snapshot is not online yet', async () => {
+    const store = new Store();
+    store.offline = true;
+    render(<Harness store={store} platform={fakePlatform().platform} voice={() => fakeVoice().engine} />);
+    await act(async () => { store.flushed.forEach((f) => f({ clientEventId: 'x', queuedMs: 3210, action: { type: 'LOG_MED' } })); });
+    expect(store.actions).toContainEqual(expect.objectContaining({ type: 'TELEMETRY_SAMPLE', metric: 'outboxQueuedMs', ms: 3210, device: 'glasses' }));
+  });
+  it('flushed telemetry and view pushes are never re-sampled (no feedback loop)', async () => {
+    const store = new Store();
+    render(<Harness store={store} platform={fakePlatform().platform} voice={() => fakeVoice().engine} />);
+    await act(async () => { store.flushed.forEach((f) => f({ clientEventId: 'a', queuedMs: 5, action: { type: 'TELEMETRY_SAMPLE' } })); });
+    await act(async () => { store.flushed.forEach((f) => f({ clientEventId: 'b', queuedMs: 5, action: { type: 'SET_GLASSES_VIEW' } })); });
+    expect(store.actions.filter((a) => a.type === 'TELEMETRY_SAMPLE' && a.metric === 'outboxQueuedMs')).toHaveLength(0);
+  });
+
+  const mirrorWith = (presence: Record<string, number> | undefined, viewed = true) => {
+    const store = new Store();
+    const s = { ...initialState(PATIENTS), screen: 'G4' as const, patientId: 'P-1012' };
+    if (viewed) store.state = { ...store.state!, glassesViewState: toViewState(s) };
+    store.presence = presence;
+    return render(<Harness store={store} platform={null} mirror />);
+  };
+  const strip = (c: HTMLElement) => c.querySelector('[data-hud="status-strip"]')!.textContent ?? '';
+  it('the mirror shows Not linked when the glasses left but their last view is frozen on screen', () => {
+    const { container } = mirrorWith({ glasses: 0, phone: 1, director: 1 });
+    expect(screenOf(container)).toBe('G4'); // the frozen view is still what the glasses last showed
+    expect(strip(container)).toContain('Not linked');
+  });
+  it('the mirror shows Linked while the glasses are present, and is untouched with no presence info or no pushed view', () => {
+    expect(strip(mirrorWith({ glasses: 1, phone: 1, director: 1 }).container)).toContain('Linked');
+    expect(strip(mirrorWith({ glasses: 1, phone: 1, director: 1 }).container)).not.toContain('Not linked');
+    cleanup();
+    expect(strip(mirrorWith(undefined).container)).not.toContain('Not linked');
+    cleanup();
+    // Display-only flow: the glasses are themselves the mirror and no view was ever pushed.
+    expect(strip(mirrorWith({ glasses: 0, phone: 1, director: 1 }, false).container)).not.toContain('Not linked');
+  });
+});

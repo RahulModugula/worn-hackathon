@@ -26,7 +26,7 @@ describe('useBedsideSession', () => {
   it('connects as the phone for the given session and sends typed actions with a device-less body and a fresh id', () => {
     const { result } = renderHook(() => useBedsideSession('ward-7'));
     const ws = FakeWS.all[0];
-    expect(ws.url).toMatch(/\/ws\?session=ward-7&device=phone$/);
+    expect(ws.url).toMatch(/\/ws\?session=ward-7&device=phone&instance=[0-9a-f-]{36}$/);
     act(() => { ws.readyState = 1; ws.onopen?.(); });
     act(() => result.current.send({ type: 'SET_ACTIVE_PATIENT', patientId: 'P-1012' } as never));
     expect(ws.sent.at(-1)).toMatchObject({ type: 'SET_ACTIVE_PATIENT', patientId: 'P-1012' });

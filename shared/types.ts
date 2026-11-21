@@ -114,10 +114,58 @@ export interface SessionState {
   extraOrders?: Record<string, ExtraOrder[]>
   /** Verification chain per med/wound event, newest last (bounded). Powers the P4 activity feed. */
   feed?: FeedEntry[]
+  /** Allergy alerts a wearer acknowledged on the glasses, so another wearer does not re-alert. Cleared by RESET_SESSION. */
+  allergyAcks?: AllergyAck[]
+  /** Handoff packets (newest last, capped at MAX_HANDOFFS). Cleared by RESET_SESSION. */
+  handoffs?: HandoffPacket[]
 }
 
-export type TelemetryMetric = 'scanToCardMs' | 'doneToAckMs' | 'assessMs'
-export const TELEMETRY_METRICS: readonly TelemetryMetric[] = ['scanToCardMs', 'doneToAckMs', 'assessMs']
+/** I-PASS illness severity. Only ever set by a nurse's selection; never computed. */
+export type Severity = 'Stable' | 'Watch' | 'Unstable'
+export const SEVERITIES: readonly Severity[] = ['Stable', 'Watch', 'Unstable']
+export const MAX_HANDOFFS = 10
+
+/** One line of a handoff packet. Sections follow I-PASS: I illness severity, P patient, A action list, S situation awareness. */
+export interface HandoffItem {
+  section: 'I' | 'P' | 'A' | 'S'
+  text: string
+  /** Every allergy item and every med given in the last 4 h: the receiver must read each back before accepting. */
+  critical: boolean
+}
+
+export interface HandoffPacket {
+  handoffId: string
+  patientId: string
+  fromNurseId: string
+  toNurseId: string
+  severity?: Severity
+  items: HandoffItem[]
+  status: 'offered' | 'accepted'
+  /** Server-stamped connection instance of the offering device. */
+  offeredByInstance: string
+  offeredVia: 'glasses' | 'phone'
+  /** Demo-clock label of the offer, e.g. "2:05 PM". */
+  createdLabel: string
+  /** Indexes into `items` the receiver read back (critical items only). */
+  readBack: number[]
+  acceptedAtMs?: number
+  acceptedLabel?: string
+  acceptedByInstance?: string
+}
+
+export const MAX_ALLERGY_ACKS = 20
+export interface AllergyAck {
+  /** `${patientId}:${medKey}` */
+  key: string
+  atMs: number
+  /** Demo-clock label of the acknowledgement, e.g. "1:42 PM". */
+  label: string
+  device: Device
+  via: 'voice' | 'tap'
+}
+
+export type TelemetryMetric = 'scanToCardMs' | 'doneToAckMs' | 'assessMs' | 'outboxQueuedMs'
+export const TELEMETRY_METRICS: readonly TelemetryMetric[] = ['scanToCardMs', 'doneToAckMs', 'assessMs', 'outboxQueuedMs']
 export const TELEMETRY_KEEP = 20
 
 export interface ExtraOrder {
@@ -132,7 +180,7 @@ export interface ExtraOrder {
 export interface FeedEntry {
   seq: number
   atMs: number
-  /** 'med_given' | 'med_undone' | 'wound_captured' | 'wound_saved' | 'wound_sent' | 'wound_dressing' | 'dr_reply' */
+  /** 'med_given' | 'med_undone' | 'wound_captured' | 'wound_saved' | 'wound_sent' | 'wound_dressing' | 'dr_reply' | 'allergy_ack' | 'handoff_offered' | 'handoff_accepted' */
   kind: string
   device: Device
   patientId?: string
@@ -141,6 +189,8 @@ export interface FeedEntry {
   medName?: string
   /** Demo-clock label, e.g. "2:05 PM". */
   timeLabel: string
+  /** Short free text for handoff entries, e.g. "Priya S. to Marcus T.". */
+  label?: string
   /** Ordered verification steps, e.g. ['Wristband matched', 'Nurse confirmed via voice', 'Server accepted']. */
   chain: string[]
 }
@@ -148,6 +198,11 @@ export interface FeedEntry {
 interface Base {
   clientEventId: string
   device: Device
+  /**
+   * Opaque id of the connection's browser tab or app instance. Set by the SERVER from the WS connect query
+   * (`instance=`, uuid-shaped, at most 64 chars); an `instance` in a frame body is ignored.
+   */
+  instance?: string
 }
 
 export type SimActionType =
@@ -166,12 +221,15 @@ export type SimActionType =
   | 'SIM_CLOCK_PLUS_30'
   | 'SIM_ADD_CONFLICT_ORDER'
   | 'SIM_DRESSING_PRESET'
+  | 'SIM_HANDOFF_OFFER'
+  | 'SIM_CHAOS_DROP'
 
 export const SIM_TYPES: readonly SimActionType[] = [
   'SIM_SCAN_RM_12', 'SIM_SCAN_RM_14', 'SIM_VOICE_DONE', 'SIM_VOICE_NEXT', 'SIM_VOICE_UNDO',
   'SIM_TRIGGER_PAIN', 'SIM_TRIGGER_WOUND', 'SIM_SEND_TO_PHONE', 'SIM_FAIL_PHOTO_UPLOAD', 'SIM_CAPTURE_WOUND',
   'SIM_DR_REPLY', 'SIM_ALLERGY_ALERT', 'SIM_CLOCK_PLUS_30', 'SIM_ADD_CONFLICT_ORDER',
   'SIM_DRESSING_PRESET',
+  'SIM_HANDOFF_OFFER', 'SIM_CHAOS_DROP',
 ]
 
 export type Action =
@@ -180,8 +238,14 @@ export type Action =
   | (Base & { type: 'LOG_MED'; patientId: string; medKey: string; via?: MedVia
       /** Nurse confirmed giving a med that is not yet actionable (due in more than 30 min). */
       earlyConfirmed?: boolean
+      /** Nurse confirmed giving a med whose class matches a chart allergy. The glasses never send this (confirm on phone). */
+      allergyConfirmed?: boolean
       /** True when the glasses scan locked this patient (wristband matched); recorded in the feed chain. */
       scanLocked?: boolean })
+  | (Base & { type: 'ALLERGY_ACK'; patientId: string; medKey: string; via?: 'voice' | 'tap' })
+  | (Base & { type: 'HANDOFF_OFFER'; handoffId: string; patientId: string; toNurseId: string; severity?: Severity })
+  | (Base & { type: 'HANDOFF_READBACK'; handoffId: string; index: number })
+  | (Base & { type: 'HANDOFF_ACCEPT'; handoffId: string })
   | (Base & { type: 'TELEMETRY_SAMPLE'; metric: TelemetryMetric; ms: number })
   | (Base & { type: 'UNDO_LAST_MED' })
   | (Base & { type: 'RESET_SESSION' })
@@ -210,8 +274,26 @@ export interface ActionResult {
   state: SessionState
   /** Client should drop its local outbox (RESET_SESSION). */
   clearOutbox?: boolean
-  /** LOG_MED refused because the med is not yet due; resend with earlyConfirmed:true to override. */
+  /** LOG_MED refused because the med is not yet due (earlyConfirmed:true overrides) or conflicts with a chart allergy (allergyConfirmed:true overrides). */
   needsConfirm?: boolean
+}
+
+/** What the server knows about one connected (or just dropped) device, from its pings. */
+export interface PeerStats {
+  device: Device
+  instance?: string
+  /** The `state.version` the peer last reported; null until its first ping. */
+  v: number | null
+  /** Actions waiting in the peer's outbox. */
+  q: number
+  /** Round trip of the peer's last ping/pong, measured by the peer (ms). */
+  rttMs: number | null
+  /** Server time of the peer's last ping. */
+  lastSeenMs: number
+  /** Server time the socket dropped; null while connected. */
+  offlineSince: number | null
+  /** How long the peer's last outage lasted, as it reported on reconnect (ms). */
+  lastOfflineMs: number | null
 }
 
 export type ServerMsg =
@@ -219,5 +301,8 @@ export type ServerMsg =
   | { t: 'result'; clientEventId: string; result: ActionResult }
   /** Connected sockets per device role in this session. Sent on connect and on every disconnect. */
   | { t: 'presence'; presence: Record<Device, number> }
-  | { t: 'pong' }
+  /** Answer to a ping; `n` echoes the ping's sequence number so the client can time the round trip. */
+  | { t: 'pong'; n?: number }
+  /** Director-only sync health: one entry per socket (and recently dropped instances), plus the server's state version. At most 2 per second. */
+  | { t: 'stats'; peers: PeerStats[]; serverVersion: number }
   | { t: 'error'; message: string; clientEventId?: string }

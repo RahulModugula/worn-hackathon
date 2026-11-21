@@ -411,8 +411,9 @@ describe('SIM_ADD_CONFLICT_ORDER', () => {
     applyAction(s, { type: 'SIM_ADD_CONFLICT_ORDER', device: 'director', clientEventId: id() }, T0, pts)
     const o = s.extraOrders?.['P-1012']?.[0]
     expect(o).toMatchObject({ name: 'Amoxicillin', dose: '250 mg', route: 'PO', allergyClasses: ['penicillin'] })
-    const r = applyAction(s, { type: 'LOG_MED', patientId: 'P-1012', medKey: o!.id, device: 'phone', clientEventId: id() }, T0, pts)
-    expect(r.ok).toBe(true)
+    const logIt = (extra: object) => applyAction(s, { type: 'LOG_MED', patientId: 'P-1012', medKey: o!.id, device: 'phone', clientEventId: id(), ...extra } as Action, T0, pts)
+    expect(logIt({}).needsConfirm).toBe(true) // allergy conflict: refused until the nurse confirms
+    expect(logIt({ allergyConfirmed: true }).ok).toBe(true)
   })
   it('is idempotent per patient (second press adds nothing)', () => {
     applyAction(s, { type: 'SIM_ADD_CONFLICT_ORDER', device: 'director', clientEventId: id() }, T0, pts)

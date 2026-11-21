@@ -16,6 +16,7 @@ const POSITIVE: Case[] = [
   ...['room 12', 'Room 12', 'room twelve', 'room number 12', 'go to room 12', 'open room 12', 'room12', 'room number twelve', 'room 12 please', 'switch to room 12'].map((p): Case => [p, 'room12']),
   ...['room 14', 'Room 14', 'room fourteen', 'room number 14', 'go to room 14', 'open room 14', 'room14', 'room number fourteen', 'room 14 please', 'switch to room 14'].map((p): Case => [p, 'room14']),
   ...['take a photo', 'take photo', 'take a picture', 'take the picture', 'capture photo', 'snap a photo', 'snap a pic', 'capture the photo', 'photo', 'capture', 'picture', 'Take a photo', 'take a pic', 'take the photo', 'capture a picture'].map((p): Case => [p, 'capture']),
+  ...['hand off', 'handoff', 'Hand off', 'hand over', 'handover', 'hand-off', 'start handoff', 'hand off to Marcus', 'hand over the patient', 'handoff please', 'ready for handoff', 'hand off this patient', 'HANDOFF', 'hand off now'].map((p): Case => [p, 'handoff']),
   ...['my leg hurts', 'it hurts', 'pain', 'pain in my leg', 'I have pain', 'he is in pain', 'it hurts a lot', 'my back hurts', 'hurting', 'it is hurting', 'pain is like a 7', 'pain 7 out of 10', 'I feel pain', 'severe pain', 'my knee hurts', 'pain at 8/10', 'about a 6', 'around a 5', 'sharp pain', 'chest pain'].map((p): Case => [p, 'pain']),
   ...['the dressing is itchy', 'check the wound', 'wound', 'the wound looks red', 'incision looks red', 'surgical site is red', 'dressing is soaked', 'dressing came off', 'look at the wound', 'wound check', 'the incision is open', 'the dressing is loose', 'my incision hurts?'].map((p): Case => [p, 'wound']),
 ];
@@ -36,10 +37,15 @@ const NEG_STRICT: string[] = [
   'is it done', 'when will it be done', 'did you undo it', 'who is done', 'can you undo', 'no no no', 'nope', 'not now', 'not yet', 'yet', 'stop', 'cancel that', 'hello', 'testing one two three', 'Maria is in bed twelve', 'bed twelve', 'room', 'room 13', 'room 120', 'room 1', 'rooms', 'bedroom', 'ballroom',
   '😀', '👍🏽', '完成', 'готово', 'منتهي', 'ｄｏｎｅ', 'dоne', 'd0ne', 'd one', 'do ne', 'u n d o', 'dónde', 'ñandú',
   "'; DROP TABLE patients; --", '<script>alert(1)</script>', '${process.exit(1)}', '{{7*7}}', '../../etc/passwd', 'SELECT * FROM meds WHERE done = 1', 'javascript:alert(1)', 'constructor', '__proto__', 'toString', 'hasOwnProperty',
+  // handoff: negations, questions, other words and long sentences must never start a handoff.
+  "don't hand off", 'do not hand off', 'not handoff', "can't hand over", 'never handoff', 'no handoff', 'not yet hand off', "I won't hand over", 'no handover yet',
+  'did you hand off', 'will you hand off', 'when is the handoff', 'is the handoff done', 'who will hand over', 'are we ready for handoff',
+  'handoffs', 'handovers', 'handed off', 'hand offer', 'handover the keys at the end of my long shift tomorrow morning please', 'hand', 'off', 'hand soap', 'shake hand over there',
+  'the day nurse will hand off the patient in room twelve to the night nurse at seven tonight',
   'do\u0000ne', 'd\u200bone', 'u\u200bndo',
 ];
 /** Negatives that may fire a harmless context intent but never done/undo/acknowledge. */
-const DANGEROUS: Intent[] = ['done', 'undo', 'acknowledge'];
+const DANGEROUS: Intent[] = ['done', 'undo', 'acknowledge', 'handoff'];
 
 describe('voice intent corpus', () => {
   it('has at least 300 phrases', () => {

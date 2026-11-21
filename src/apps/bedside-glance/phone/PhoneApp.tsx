@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { demoMinutes, hhmmToMinutes, longTime } from '../../../../shared/clock';
+import { checkAllergy } from '../../../../shared/allergy';
 import { P1Shift } from './P1Shift';
 import { P2Patient } from './P2Patient';
 import { P3WoundReview, WoundEmpty } from './P3WoundReview';
@@ -11,7 +12,7 @@ import { Icon } from './Icon';
 import { BrandMark, Button, Sheet, StatusDot, TabBar, Toast, UndoRing, type TabItem } from './ui';
 import {
   EARLY_REASONS, NURSE, assessmentLabel, captureAssessment, conflictText, isNotYetDue, medStatusOf, patientById, pendingReview,
-  sortedPatients, latestCapture, undoLabel, undoRemainingSinceReceipt, withDressingLine,
+  medsWithOrders, sortedPatients, latestCapture, undoLabel, undoRemainingSinceReceipt, withDressingLine,
 } from './model';
 import './tokens.css';
 import './phone.css';
@@ -27,7 +28,7 @@ export interface PhoneAppProps {
 type View = { name: 'shift' } | { name: 'patient'; patientId: string | null } | { name: 'wound' } | { name: 'activity' } | { name: 'scan' };
 
 /** A med that is not yet due, waiting for the nurse to confirm giving it. */
-interface EarlyConfirm { patientId: string; medId: string; label: string; timeLabel: string }
+interface EarlyConfirm { patientId: string; medId: string; label: string; timeLabel?: string; allergy?: string }
 
 /** Ticks once a second so the clock, countdowns and the Undo window stay live. */
 function useNow(intervalMs: number): number {
@@ -85,11 +86,14 @@ export function PhoneApp({ sessionId = 'demo', directorOpen = false, scanOpen = 
     const existing = medStatusOf(state, patientId, medId);
     if (existing?.status === 'given') return conflictText(existing);
     const patient = patientById(patientId);
-    const med = patient?.meds.find(m => m.id === medId);
+    const med = patient ? medsWithOrders(patient, state).find(m => m.id === medId) : undefined;
     if (patient && med) {
       const dueMin = hhmmToMinutes(med.dueAt);
-      if (isNotYetDue(dueMin, nowMin)) {
-        setEarly({ patientId, medId, label: `${med.name} ${med.dose}`, timeLabel: longTime(dueMin) });
+      const hit = checkAllergy(patient, med);
+      const early = isNotYetDue(dueMin, nowMin);
+      // An allergy conflict is never one tap, even after the glasses acknowledged the alert: the server refuses it too.
+      if (hit || early) {
+        setEarly({ patientId, medId, label: `${med.name} ${med.dose}`, ...(early ? { timeLabel: longTime(dueMin) } : {}), ...(hit ? { allergy: hit.allergy } : {}) });
         return null;
       }
     }
@@ -100,7 +104,8 @@ export function PhoneApp({ sessionId = 'demo', directorOpen = false, scanOpen = 
   const confirmEarly = () => {
     if (!early) return;
     // earlyConfirmed is only ever sent after the nurse says so on this sheet.
-    send({ type: 'LOG_MED', device: 'phone', patientId: early.patientId, medKey: early.medId, via: 'phone', earlyConfirmed: true });
+    send({ type: 'LOG_MED', device: 'phone', patientId: early.patientId, medKey: early.medId, via: 'phone',
+      ...(early.timeLabel ? { earlyConfirmed: true } : {}), ...(early.allergy ? { allergyConfirmed: true } : {}) });
     setEarly(null);
   };
 
@@ -361,7 +366,9 @@ function EarlySheet({ early, onConfirm, onCancel }: { early: EarlyConfirm; onCon
   const [reason, setReason] = useState<string | null>(null);
   return (
     <Sheet title={early.label} titleId="early-title" onClose={onCancel} hideClose>
-      <p className="ph-strong ph-early-q">Not due until {early.timeLabel}. Give anyway?</p>
+      <p className="ph-strong ph-early-q">
+        {early.allergy ? `Chart lists ${early.allergy} allergy.` : ''}{early.allergy && early.timeLabel ? ' ' : ''}{early.timeLabel ? `Not due until ${early.timeLabel}.` : ''} Give anyway?
+      </p>
       <fieldset className="ph-reasons">
         <legend className="ph-label-sm">Reason</legend>
         {EARLY_REASONS.map(r => (
