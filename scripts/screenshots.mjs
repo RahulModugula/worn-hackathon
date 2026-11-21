@@ -213,12 +213,14 @@ async function phoneCaptures(browser, base, sidA) {
     await clickButton(P, '.ph-tabbar', 'Patient', { contains: true }).catch(() => {});
     await P.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => b.textContent.includes('Hand off Rm')), { timeout: 5000 });
     await clickButton(P, '.ph-view-patient', 'Hand off Rm', { contains: true });
-    const N = await openPage(browser, { ua: IPHONE_UA, viewport: PHONE_VP });
+    // Taller viewport than the other phone shots: the I-PASS sheet is long and the capture must include Accept handoff.
+    const N = await openPage(browser, { ua: IPHONE_UA, viewport: { ...PHONE_VP, height: 1400, deviceScaleFactor: 2 } });
     try {
       await N.page.goto(`${base}/phone?nurse=N-02&session=${sid}`, { waitUntil: 'domcontentloaded' });
       await N.page.waitForSelector('.ph-handoff', { timeout: 15000 });
       await sleep(500);
       await phoneShot(N.page, 'phone-handoff-sheet');
+      await N.page.setViewport(PHONE_VP);
       await clickButton(N.page, '.ph-handoff', 'Not now');
       await sleep(400);
       await clickButton(N.page, '.ph-tabbar', 'Patient', { contains: true }).catch(() => {});
