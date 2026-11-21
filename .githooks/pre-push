@@ -1,0 +1,3 @@
+#!/bin/sh
+# Tiny shim so Git for Windows, macOS and Linux all run the same Node script. Do not add logic here.
+exec node .githooks/pre-push.mjs "$@"
