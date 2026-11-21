@@ -14,7 +14,7 @@ import { install } from './install-hooks.mjs';
 import { PROTECTED, protectedChanges } from './lib/protected.mjs';
 import {
   actionsUrl, backupBranchName, canSkipPrePush, isConflictOutput, lkgPushArgs, needsChecks, parsePushLines, parseRemote, pushTarget,
-  shouldMoveLkg, usesForbiddenFlags, validateMessage,
+  needsRecheckAfterPull, shouldMoveLkg, usesForbiddenFlags, validateMessage,
 } from './lib/workflow.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
@@ -245,6 +245,17 @@ describe('ship / rollback / hook helpers', () => {
     expect(canSkipPrePush({ BG_VERIFIED_SHA: a }, branch)).toBe(true);
     expect(canSkipPrePush({ BG_VERIFIED_SHA: 'b'.repeat(40) }, branch)).toBe(false);
     expect(canSkipPrePush({}, branch)).toBe(false);
+  });
+  it('re-checks whenever the pull moved HEAD (not by origin/<branch> refs)', () => {
+    const a = 'a'.repeat(40);
+    const b = 'b'.repeat(40);
+    expect(needsRecheckAfterPull(a, b)).toBe(true);
+    expect(needsRecheckAfterPull(a, a)).toBe(false);
+    // unknown HEAD on either side fails closed: check again
+    expect(needsRecheckAfterPull('', a)).toBe(true);
+    expect(needsRecheckAfterPull(a, '')).toBe(true);
+    // the old bug: origin/<branch> unchanged in a stale clone while HEAD moved must still re-check
+    expect(needsRecheckAfterPull(a, b)).toBe(true);
   });
   it('names backup branches and spots forbidden flags', () => {
     expect(backupBranchName(new Date(2026, 10, 21, 9, 5, 7))).toBe('backup/before-rollback-20261121-090507');

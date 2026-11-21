@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { evaluateFreeze, FREEZE_AT } from './freeze-guard.mjs';
 import { git, runInherit, runCapture } from './lib/proc.mjs';
-import { actionsUrl, isConflictOutput, pushTarget, usesForbiddenFlags, validateMessage } from './lib/workflow.mjs';
+import { actionsUrl, isConflictOutput, needsRecheckAfterPull, pushTarget, usesForbiddenFlags, validateMessage } from './lib/workflow.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 process.chdir(ROOT);
@@ -29,12 +29,14 @@ if (!branch.ok) die(branch.message);
 if (existsSync('.git/rebase-merge') || existsSync('.git/rebase-apply') || existsSync('.git/MERGE_HEAD')) die('A merge or rebase is half-finished. Ask your AI assistant to finish or abort it (git rebase --abort), then run ship again.');
 
 say(`1/6 Saving your changes on "${branch.branch}"...`);
+const indexBefore = git(['write-tree']); // exact index snapshot: a failed check restores deliberately staged files
 git(['add', '-A']);
 
 say('2/6 Running all checks (types, tests, build, guards). This takes under a minute...');
 process.env.BG_COMMIT_MSG = msg.message;
 if (runInherit('npm', ['run', 'check']) !== 0) {
-  git(['reset', '-q']);
+  if (indexBefore.code === 0 && indexBefore.out) git(['read-tree', indexBefore.out]);
+  else git(['reset', '-q']);
   die('A check failed (see the first error above). Nothing was committed or pushed. Next step: paste the error to your AI assistant with "fix this without weakening any test", then run ship again. If you are lost, run `npm run rollback`.');
 }
 
@@ -47,7 +49,7 @@ if (staged) {
 
 say('4/6 Getting the latest from your teammates (git pull --rebase)...');
 const hasRemote = git(['remote', 'get-url', 'origin']);
-let tipBefore = git(['rev-parse', '-q', '--verify', `origin/${branch.branch}`]).out;
+const headBefore = git(['rev-parse', 'HEAD']).out;
 if (hasRemote.code === 0) {
   const pull = runCapture('git', ['pull', '--rebase', 'origin', branch.branch]);
   const text = `${pull.out}\n${pull.err}`;
@@ -56,8 +58,8 @@ if (hasRemote.code === 0) {
     if (isConflictOutput(text)) die(`Your change and a teammate's change edit the same lines. Your work is safe (committed locally, rebase undone). Next step: ask your AI assistant "merge origin/${branch.branch} into my branch and resolve the conflicts keeping both people's intent", run npm run check, then ship again. Or message the teammate.`);
     die(`Could not get the latest: ${text.split('\n').slice(-3).join(' ')}. Check your internet, then run ship again.`);
   }
-  const tipAfter = git(['rev-parse', '-q', '--verify', `origin/${branch.branch}`]).out;
-  if (tipAfter && tipAfter !== tipBefore) {
+  const headAfter = git(['rev-parse', 'HEAD']).out;
+  if (needsRecheckAfterPull(headBefore, headAfter)) {
     say('    New commits arrived. Re-running the checks on the combined code...');
     if (runInherit('npm', ['run', 'check']) !== 0) die('The combined code fails the checks (a teammate\'s change and yours do not fit together). Nothing was pushed. Ask your AI assistant to fix it, commit, and run ship again.');
   }

@@ -77,3 +77,9 @@ export function backupBranchName(date) {
 export function usesForbiddenFlags(argv) {
   return argv.filter((a) => /^(--no-verify|--force|-f|--force-with-lease|--no-gpg-sign)$/.test(a));
 }
+
+/** After `git pull --rebase`: merged code must be re-checked whenever HEAD moved. Unknown HEAD fails closed. */
+export function needsRecheckAfterPull(headBefore, headAfter) {
+  if (!headBefore || !headAfter) return true;
+  return headBefore !== headAfter;
+}
