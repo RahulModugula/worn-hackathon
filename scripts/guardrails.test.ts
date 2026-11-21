@@ -27,6 +27,12 @@ describe('real repo passes the repo guards', () => {
     expect(r.stderr).toBe('');
     expect(r.status).toBe(0);
   });
+  it('a GUARD_BASE sha that is not present locally does not crash the guard', () => {
+    const r = spawnSync(process.execPath, ['scripts/guard.mjs'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, GUARD_BASE: 'deadbeef'.repeat(5) } });
+    expect(r.stderr).not.toMatch(/Command failed|fatal:|at .*guard\.mjs/);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch(/not present locally|git pull --rebase/);
+  });
   it('real package.json, CODEOWNERS, workflow, ruleset, gitattributes are valid', () => {
     expect(checkPackageScripts(JSON.parse(read('package.json')))).toEqual([]);
     expect(checkCodeowners(read('.github/CODEOWNERS'))).toEqual([]);

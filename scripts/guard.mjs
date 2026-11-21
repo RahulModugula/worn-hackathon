@@ -25,7 +25,8 @@ const TEXT_EXT = /\.(?:[cm]?[jt]sx?|json|md|ya?ml|html|css|txt|kts?|xml|properti
 const inBundle = (e) => /^(src|shared)\//.test(e.path) || ["index.html", "vite.config.ts", ".env.example"].includes(e.path);
 
 export function resolveBase(env = process.env) {
-  if (env.GUARD_BASE) return env.GUARD_BASE;
+  // A pushed-over sha (pre-push passes the remote tip) may not exist locally yet: fall through instead of crashing git diff.
+  if (env.GUARD_BASE && tryGit('rev-parse', '--verify', '-q', `${env.GUARD_BASE}^{commit}`)) return env.GUARD_BASE;
   for (const ref of ['@{u}', 'origin/main', 'last-known-good']) if (tryGit('rev-parse', '--verify', '-q', ref)) return ref;
   return '';
 }
@@ -56,6 +57,8 @@ function run() {
   if (!args.includes('--no-diff')) {
     const bi = args.indexOf('--base');
     const base = bi >= 0 ? args[bi + 1] : resolveBase();
+    const wanted = process.env.GUARD_BASE;
+    if (bi < 0 && wanted && base !== wanted) console.log(`guard: base ${wanted.slice(0, 12)} is not present locally (a teammate pushed first). Run git pull --rebase, then push again. Meanwhile comparing with ${base || 'nothing'}.`);
     if (!base) diffNote = 'diff checks skipped (no upstream, origin/main or last-known-good to compare with)';
     else {
       const parsed = parseDiff(git('diff', '--unified=0', '--no-color', '--no-ext-diff', '--no-renames', base));
