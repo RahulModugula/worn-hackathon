@@ -1,5 +1,5 @@
-import type { Action, ActionResult, SessionState, MedStatus, WoundCapture, FeedEntry, ExtraOrder, TelemetryMetric } from '../shared/types'
-import { NO_AI_REVIEW, SIM_TYPES, TELEMETRY_KEEP, TELEMETRY_METRICS } from '../shared/types'
+import type { Action, ActionResult, DressingType, SessionState, MedStatus, WoundCapture, WoundDressing, FeedEntry, ExtraOrder, TelemetryMetric } from '../shared/types'
+import { DRESSING_INTERVAL_PRESETS, DRESSING_TYPES, NO_AI_REVIEW, SIM_TYPES, TELEMETRY_KEEP, TELEMETRY_METRICS } from '../shared/types'
 import { ACTIONABLE_WINDOW_MIN, hhmmToMinutes, longTime, minutesUntil } from '../shared/clock'
 import { CONFLICT_ORDER } from '../shared/allergy'
 
@@ -146,6 +146,11 @@ function recordFeed(s: SessionState, a: Action, now: number, patients?: Patients
       if (a.type === 'WOUND_SEND') chain.push('Sent to ' + (cur?.sentTo ?? 'the doctor'))
       break
     }
+    case 'WOUND_SET_DRESSING': {
+      kind = 'wound_dressing'; patientId = findCapture(s, a.captureId)?.patientId
+      chain.push('Documented by nurse')
+      break
+    }
     case 'DR_REPLY': {
       kind = 'dr_reply'; patientId = a.captureId ? findCapture(s, a.captureId)?.patientId : undefined
       chain.push('Reply from ' + a.from)
@@ -281,6 +286,7 @@ function run(s: SessionState, a: Action, now: number, patients?: PatientsData): 
       cur.photoUploadFailed = false
       return { ok: true }
     }
+    case 'WOUND_SET_DRESSING': return setDressing(s, a.captureId, a.dressingType, a.changedAtMin, a.intervalHours, a.device, now)
     case 'WOUND_SAVE': {
       const cur = findCapture(s, a.captureId)
       if (!cur) return { ok: false, message: 'No wound capture' }
@@ -341,11 +347,47 @@ function run(s: SessionState, a: Action, now: number, patients?: PatientsData): 
             list.push(order)
           }
         }
+        if (a.type === 'SIM_DRESSING_PRESET') {
+          // Demo preset only: Hydrogel, changed at the demo clock, 24 h. A Director convenience, not a recommendation.
+          const cur = [...s.woundCaptures].reverse().find(c => c.status === 'captured' || c.status === 'pending_review')
+          if (!cur) return { ok: false, message: 'Capture a wound photo first' }
+          const dm = demoMinutes(s, now)
+          return setDressing(s, cur.captureId, 'hydrogel', Math.floor(dm ?? DEFAULT_BASE_MIN) % 1440, 24, a.device, now)
+        }
         if (a.type === 'SIM_FAIL_PHOTO_UPLOAD') s.photoUploadShouldFail = !s.photoUploadShouldFail
         return { ok: true }
       }
       return { ok: false, message: 'Unknown action' }
   }
+}
+
+const validMinute = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 1439
+
+/**
+ * Nurse-entered dressing documentation. First-write-wins like WOUND_SAVE/SEND: once the note is saved or sent it is
+ * frozen. While it is still a draft the nurse may correct it. The server never chooses an interval; it only adds.
+ */
+function setDressing(
+  s: SessionState, captureId: string, type: DressingType, changedAtMin: number | undefined,
+  intervalHours: number | null | undefined, device: WoundDressing['enteredBy'], now: number,
+): Partial_ {
+  const cur = findCapture(s, captureId)
+  if (!cur) return { ok: false, message: 'No wound capture' }
+  if (cur.status === 'sent') return { ok: false, conflict: true, message: `Already sent to ${cur.sentTo ?? 'the doctor'}` }
+  if (cur.status === 'saved') return { ok: false, conflict: true, message: 'Already saved' }
+  if (!(DRESSING_TYPES as readonly unknown[]).includes(type)) return { ok: false, message: 'Bad dressing type' }
+  if (type === 'none') {
+    cur.dressing = { type, nextDueMin: null, enteredBy: device, atMs: now }
+    return { ok: true }
+  }
+  if (!validMinute(changedAtMin)) return { ok: false, message: 'Bad changed time' }
+  if (intervalHours === undefined || !DRESSING_INTERVAL_PRESETS.includes(intervalHours)) return { ok: false, message: 'Bad interval' }
+  cur.dressing = {
+    type, changedAtMin, intervalHours,
+    nextDueMin: intervalHours === null ? null : (changedAtMin + intervalHours * 60) % 1440,
+    enteredBy: device, atMs: now,
+  }
+  return { ok: true }
 }
 
 const MAX_VIEW_JSON = 4000
@@ -366,7 +408,7 @@ export function validateAction(raw: unknown): { action: Action } | { error: stri
   if (typeof o.clientEventId !== 'string' || !o.clientEventId || o.clientEventId.length > 100) return { error: 'bad clientEventId' }
   if (o.device !== 'glasses' && o.device !== 'phone' && o.device !== 'director') return { error: 'bad device' }
   const known = ['START_SHIFT', 'SET_ACTIVE_PATIENT', 'LOG_MED', 'UNDO_LAST_MED', 'RESET_SESSION', 'SET_CLOCK_OFFSET',
-    'WOUND_CAPTURED', 'WOUND_SAVE', 'WOUND_SEND', 'WOUND_RETRY_UPLOAD', 'DR_REPLY', 'SEND_TO_PHONE', 'SET_GLASSES_NOTICE', 'SET_GLASSES_VIEW', 'TELEMETRY_SAMPLE', ...SIM_TYPES]
+    'WOUND_CAPTURED', 'WOUND_SAVE', 'WOUND_SEND', 'WOUND_RETRY_UPLOAD', 'WOUND_SET_DRESSING', 'DR_REPLY', 'SEND_TO_PHONE', 'SET_GLASSES_NOTICE', 'SET_GLASSES_VIEW', 'TELEMETRY_SAMPLE', ...SIM_TYPES]
   if (!known.includes(o.type)) return { error: `unknown action type` }
   const str = (k: string) => typeof o[k] === 'string' && (o[k] as string).length <= 200
   const cid = (k: string) => typeof o[k] === 'string' && CAPTURE_ID.test(o[k] as string)
@@ -410,6 +452,14 @@ export function validateAction(raw: unknown): { action: Action } | { error: stri
       if (o.photoUploadFailed !== undefined && typeof o.photoUploadFailed !== 'boolean') return { error: 'bad photoUploadFailed' }
       break
     case 'WOUND_SAVE': case 'WOUND_SEND': if (!cid('captureId') || !optLong('draftNote')) return { error: `bad ${o.type}` }; break
+    case 'WOUND_SET_DRESSING': {
+      if (!cid('captureId') || !(DRESSING_TYPES as readonly unknown[]).includes(o.dressingType)) return { error: 'bad WOUND_SET_DRESSING' }
+      if (o.dressingType !== 'none') {
+        if (!validMinute(o.changedAtMin)) return { error: 'bad changedAtMin' }
+        if (o.intervalHours === undefined || !DRESSING_INTERVAL_PRESETS.includes(o.intervalHours as number | null)) return { error: 'bad intervalHours' }
+      }
+      break
+    }
     case 'WOUND_RETRY_UPLOAD': if (!cid('captureId')) return { error: 'bad captureId' }; break
     case 'DR_REPLY':
       if (!str('from') || !long('text') || (o.captureId !== undefined && !cid('captureId'))) return { error: 'bad DR_REPLY' }

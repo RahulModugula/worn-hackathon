@@ -33,6 +33,29 @@ export const NO_AI_REVIEW = {
 } as const
 export type AssessmentSource = 'gemini' | 'fallback' | 'unavailable'
 
+/** Nurse-documented dressing choices (pick list). Documentation only: no recommendation is implied by any option. */
+export const DRESSING_TYPES = ['hydrogel', 'hydrocolloid', 'foam', 'alginate', 'film', 'gauze', 'other', 'none'] as const
+export type DressingType = (typeof DRESSING_TYPES)[number]
+export const DRESSING_LABELS: Record<DressingType, string> = {
+  hydrogel: 'Hydrogel', hydrocolloid: 'Hydrocolloid', foam: 'Foam', alginate: 'Alginate',
+  film: 'Transparent film', gauze: 'Gauze', other: 'Other', none: 'None',
+}
+/** Interval presets the nurse can pick, in hours. `null` = "per protocol" (no next-due time is computed). Not a clinical recommendation. */
+export const DRESSING_INTERVAL_PRESETS: readonly (number | null)[] = [24, 48, 72, null]
+
+/** What the nurse entered. Server computes nextDueMin from changedAtMin + intervalHours; it never picks an interval. */
+export interface WoundDressing {
+  type: DressingType
+  /** Minutes since midnight on the demo clock. Absent for type 'none'. */
+  changedAtMin?: number
+  /** Nurse-chosen preset in hours; null = per protocol. Absent for type 'none'. */
+  intervalHours?: number | null
+  /** Minutes since midnight (wraps at 1440); null when per protocol or none. */
+  nextDueMin: number | null
+  enteredBy: Device
+  atMs: number
+}
+
 export interface WoundReply { from: string; text: string; atMs: number }
 
 export interface WoundCapture {
@@ -48,6 +71,8 @@ export interface WoundCapture {
   capturedAtMs: number
   sentTo?: string
   reply?: WoundReply
+  /** Nurse-entered dressing documentation (not AI, not a recommendation). */
+  dressing?: WoundDressing
 }
 
 export interface GlassesNotice {
@@ -107,7 +132,7 @@ export interface ExtraOrder {
 export interface FeedEntry {
   seq: number
   atMs: number
-  /** 'med_given' | 'med_undone' | 'wound_captured' | 'wound_saved' | 'wound_sent' | 'dr_reply' */
+  /** 'med_given' | 'med_undone' | 'wound_captured' | 'wound_saved' | 'wound_sent' | 'wound_dressing' | 'dr_reply' */
   kind: string
   device: Device
   patientId?: string
@@ -140,11 +165,13 @@ export type SimActionType =
   | 'SIM_ALLERGY_ALERT'
   | 'SIM_CLOCK_PLUS_30'
   | 'SIM_ADD_CONFLICT_ORDER'
+  | 'SIM_DRESSING_PRESET'
 
 export const SIM_TYPES: readonly SimActionType[] = [
   'SIM_SCAN_RM_12', 'SIM_SCAN_RM_14', 'SIM_VOICE_DONE', 'SIM_VOICE_NEXT', 'SIM_VOICE_UNDO',
   'SIM_TRIGGER_PAIN', 'SIM_TRIGGER_WOUND', 'SIM_SEND_TO_PHONE', 'SIM_FAIL_PHOTO_UPLOAD', 'SIM_CAPTURE_WOUND',
   'SIM_DR_REPLY', 'SIM_ALLERGY_ALERT', 'SIM_CLOCK_PLUS_30', 'SIM_ADD_CONFLICT_ORDER',
+  'SIM_DRESSING_PRESET',
 ]
 
 export type Action =
@@ -166,6 +193,7 @@ export type Action =
   | (Base & { type: 'WOUND_SAVE'; captureId: string; draftNote?: string })
   | (Base & { type: 'WOUND_SEND'; captureId: string; draftNote?: string })
   | (Base & { type: 'WOUND_RETRY_UPLOAD'; captureId: string })
+  | (Base & { type: 'WOUND_SET_DRESSING'; captureId: string; dressingType: DressingType; changedAtMin?: number; intervalHours?: number | null })
   | (Base & { type: 'DR_REPLY'; captureId?: string; from: string; text: string })
   | (Base & { type: 'SEND_TO_PHONE'; text: string })
   | (Base & { type: 'SET_GLASSES_NOTICE'; notice: { text: string; kind?: string } | null })
