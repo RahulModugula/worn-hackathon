@@ -23,10 +23,21 @@
     "decks": "node scripts/build-decks.mjs",
     "bench": "node scripts/bench-decode.mjs",
     "stress": "node scripts/stress/soak.mjs",
-    "check": "npm run typecheck && npm run lint-boundary && npm run audit-pii && npm run check-docs && npm run build && npm run check-legacy && npm run check-budgets && npm test",
+    "check": "npm run typecheck && npm run lint-boundary && npm run audit-pii && npm run check-docs && npm run guard-repo && npm run build && npm run check-legacy && npm run check-budgets && npm test",
     "doctor": "node scripts/doctor.mjs",
     "m6:install": "node scripts/m6-install.mjs",
-    "m6:logcat": "node scripts/m6-logcat.mjs"
+    "m6:logcat": "node scripts/m6-logcat.mjs",
+    "prepare": "node scripts/install-hooks.mjs",
+    "prestart": "node scripts/hooks-warn.mjs",
+    "predev": "node scripts/hooks-warn.mjs",
+    "guard-repo": "node scripts/guard.mjs",
+    "guard": "node scripts/guard.mjs && npm run check-docs && vitest run scripts",
+    "ship": "node scripts/ship.mjs",
+    "rollback": "node scripts/rollback.mjs",
+    "health": "node scripts/health.mjs",
+    "demo:check": "node scripts/health.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "freeze": "node scripts/freeze-guard.mjs"
   },
   "repository": {
     "type": "git",

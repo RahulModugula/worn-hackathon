@@ -41,3 +41,10 @@ Spec: `docs/FRD-v2.2.md` (source of truth). Tickets: GitHub issues BG-01..BG-14,
 - **Glasses may be display-only:** the vendor docs available to us do not document ring/touchpad key codes, plain-app mic or camera on the glasses. BG-15 (phone scans + listens, glasses `?mirror=1` shows the HUD) is a first-class fallback, not an afterthought.
 - **Quality bar:** scan->Meds <=2s, "done"->phone <1s, assess-wound <=3.5s with fallback, no text over 528px, every external dependency has a fallback.
 - **Glasses topology:** Android 9 with plain Android APIs, no glasses-side SDK. Plan = native APK with fullscreen WebView (Topology B) reaching the server via `adb reverse tcp:3001 tcp:3001` (localhost is a secure context for camera/mic) or the https Render URL.
+
+## Rules for teammate AI sessions (enforced by `docs/GUARDRAILS.md`)
+- Push straight to main only through `npm run ship -- "what you changed"`. It runs every check, pulls the latest, pushes, and marks `last-known-good`. Never use `--force` or `--no-verify`; the pre-push hook is the safety net, not an obstacle. (This overrides "branch per person" above: Rahul chose direct pushes on 2026-11-21.)
+- Never touch `kit/`, `.env*`, `.claude/` or `private-notes/`, and never put keys in code. Do not lower a coverage threshold or budget, skip or delete a test, or add `@ts-ignore`; fix the cause (a line with `skip-reason: <why>` is the only exception).
+- Protected paths (`server/`, `shared/`, `src/hud-kit/`, `scripts/`, `.github/`, `.githooks/`, `CLAUDE.md` files, `docs/FRD-v2.2.md`) are not blocked, but only change them for a ticket and keep their tests green.
+- Ask the lead before adding a dependency (needs `DEPS_APPROVED=1` or `deps-approved` in the commit message), a new external host, or any change after the freeze (2026-11-21T19:00:00Z; `ship` refuses).
+- Something broke or the hook fails: run `npm run health`, then `npm run rollback` to restore `last-known-good`. Do not weaken a guard to get past it.
