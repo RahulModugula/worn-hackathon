@@ -1,0 +1,407 @@
+/* HUD kit component styles. Plain CSS, no framework (CLAUDE.md invariant).
+   Legacy WebView (Chromium 69): no flex gap, inset, aspect-ratio, clamp, :is, dvh, overflow:clip. Space siblings with margins. */
+
+/* Canvas: exactly 640x480, black, clipped. Additive display: bright glyphs on black, no glow, blur, gradient or shadow. */
+.hud-canvas {
+  position: relative;
+  box-sizing: border-box;
+  width: var(--hud-canvas-w);
+  height: var(--hud-canvas-h);
+  background: #000;
+  overflow: hidden;
+  font-family: "Nunito", "Varela Round", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  -webkit-font-smoothing: antialiased;
+  color: var(--hud-fg);
+}
+
+/* Every text line: one line, clipped with an ellipsis. Sentence case, no tracking. */
+.hud-text {
+  display: block;
+  margin: 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.hud-label {
+  font-size: var(--hud-size-label);
+  line-height: var(--hud-lh-label);
+  font-weight: var(--hud-weight-label);
+  opacity: var(--hud-opacity-hero);
+}
+
+.hud-hero {
+  font-size: var(--hud-size-hero);
+  line-height: var(--hud-lh-hero);
+  font-weight: var(--hud-weight-hero);
+  opacity: var(--hud-opacity-hero);
+}
+
+.hud-body {
+  font-size: var(--hud-size-body);
+  line-height: var(--hud-lh-body);
+  font-weight: var(--hud-weight-body);
+  opacity: var(--hud-opacity-body);
+}
+
+.hud-hint {
+  font-size: var(--hud-size-hint);
+  line-height: var(--hud-lh-hint);
+  font-weight: var(--hud-weight-hint);
+  opacity: var(--hud-opacity-body);
+}
+
+.hud-meta {
+  font-size: var(--hud-size-meta);
+  line-height: var(--hud-lh-meta);
+  font-weight: var(--hud-weight-hint);
+  opacity: var(--hud-opacity-meta);
+}
+
+/* A line with an optional leading icon and trailing aside. The text shrinks first (ellipsis), never the icon. */
+.hud-line {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.hud-line > .hud-line__text {
+  flex: 1 1 auto;
+}
+
+.hud-line__icon {
+  flex: 0 0 auto;
+  margin-right: var(--hud-icon-gap);
+}
+
+.hud-line__aside {
+  flex: 0 1 auto;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 46%;
+  margin-left: 16px;
+}
+
+.hud-line__aside > .hud-text {
+  font-size: var(--hud-size-meta);
+  line-height: var(--hud-lh-meta);
+  font-weight: var(--hud-weight-hint);
+  opacity: var(--hud-opacity-meta);
+}
+
+.hud-line__aside--strong > .hud-text {
+  opacity: var(--hud-opacity-body);
+}
+
+.hud-line__aside > .hud-icon {
+  margin-right: 8px;
+}
+
+/* A persistent alert card reads at full luminance: its supporting lines are not dimmed. */
+.hud-tone-alert .hud-body,
+.hud-tone-alert .hud-hint {
+  opacity: var(--hud-opacity-hero);
+}
+
+/* Icons: 24x24 filled shapes, strokes at least 2px, so meaning never rests on color alone. */
+.hud-icon {
+  display: block;
+  flex: 0 0 auto;
+  width: var(--hud-icon-size);
+  height: var(--hud-icon-size);
+  fill: currentColor;
+}
+
+/* Status strip: x40-600, y0-80. No rule line: the strip is type and icons only. */
+.hud-status {
+  position: absolute;
+  left: var(--hud-status-x);
+  top: var(--hud-status-y);
+  width: var(--hud-status-w);
+  height: var(--hud-status-h);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Flex gap is not in Chromium 69 (Android 9 WebView): space siblings with margins instead. */
+.hud-status > * + * {
+  margin-left: 16px;
+}
+
+.hud-status__left {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 700;
+  opacity: var(--hud-opacity-body);
+}
+
+.hud-status__right {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  font-size: var(--hud-size-meta);
+  line-height: var(--hud-lh-meta);
+  font-weight: var(--hud-weight-hint);
+  white-space: nowrap;
+}
+
+.hud-status__item {
+  display: flex;
+  align-items: center;
+  opacity: var(--hud-opacity-meta);
+}
+
+.hud-status__item--strong {
+  opacity: var(--hud-opacity-body);
+}
+
+/* An alert owns the card: the strip recedes to 50% (still above the 40% floor). */
+.hud-status--dim {
+  opacity: 0.5;
+}
+
+.hud-status__item + .hud-status__item {
+  margin-left: 16px;
+}
+
+.hud-status__item > .hud-icon {
+  margin-right: 6px;
+}
+
+/* Bottom card: x40-600, y300-440, four short 2px corner ticks. */
+.hud-card {
+  position: absolute;
+  left: var(--hud-card-x);
+  top: var(--hud-card-y);
+  width: var(--hud-card-w);
+  height: var(--hud-card-h);
+  box-sizing: border-box;
+  padding: var(--hud-card-pad-y) var(--hud-card-pad-x);
+  border-radius: 0;
+}
+
+.hud-card__content {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.hud-card__content > * + * {
+  margin-top: 4px;
+}
+
+.hud-card__content > .hud-hero {
+  margin-top: 2px;
+}
+
+/* Cards with a progress footer keep their text clear of it. */
+.hud-card--progress .hud-card__content {
+  padding-bottom: 2px;
+  box-sizing: border-box;
+}
+
+.hud-bracket {
+  position: absolute;
+  width: var(--hud-bracket-size);
+  height: var(--hud-bracket-size);
+  border-style: solid;
+  border-color: var(--hud-fg);
+  border-width: 0;
+  border-radius: 0;
+}
+
+.hud-bracket--tl {
+  top: 0;
+  left: 0;
+  border-top-width: var(--hud-bracket-stroke);
+  border-left-width: var(--hud-bracket-stroke);
+}
+
+.hud-bracket--tr {
+  top: 0;
+  right: 0;
+  border-top-width: var(--hud-bracket-stroke);
+  border-right-width: var(--hud-bracket-stroke);
+}
+
+.hud-bracket--bl {
+  bottom: 0;
+  left: 0;
+  border-bottom-width: var(--hud-bracket-stroke);
+  border-left-width: var(--hud-bracket-stroke);
+}
+
+.hud-bracket--br {
+  bottom: 0;
+  right: 0;
+  border-bottom-width: var(--hud-bracket-stroke);
+  border-right-width: var(--hud-bracket-stroke);
+}
+
+/* Emphasis (critical alert): longer, heavier ticks. */
+.hud-card--emphasis .hud-bracket {
+  width: var(--hud-bracket-size-emphasis);
+  height: var(--hud-bracket-size-emphasis);
+}
+
+.hud-card--emphasis .hud-bracket--tl { border-top-width: var(--hud-bracket-stroke-emphasis); border-left-width: var(--hud-bracket-stroke-emphasis); }
+.hud-card--emphasis .hud-bracket--tr { border-top-width: var(--hud-bracket-stroke-emphasis); border-right-width: var(--hud-bracket-stroke-emphasis); }
+.hud-card--emphasis .hud-bracket--bl { border-bottom-width: var(--hud-bracket-stroke-emphasis); border-left-width: var(--hud-bracket-stroke-emphasis); }
+.hud-card--emphasis .hud-bracket--br { border-bottom-width: var(--hud-bracket-stroke-emphasis); border-right-width: var(--hud-bracket-stroke-emphasis); }
+
+/* Progress along the card's bottom edge: a 2px bar (width motion only) or a dot stepper. */
+.hud-card__footer {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 0;
+  height: 10px;
+}
+
+.hud-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--hud-progress-h);
+}
+
+.hud-bar__fill {
+  display: block;
+  height: 100%;
+  background: var(--hud-fg);
+  transition: width var(--hud-motion);
+}
+
+.hud-steps {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.hud-steps__dot {
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--hud-fg);
+  background: transparent;
+  opacity: var(--hud-opacity-body);
+  transition: opacity var(--hud-motion);
+}
+
+.hud-steps__dot + .hud-steps__dot {
+  margin-left: 8px;
+}
+
+.hud-steps__dot--on {
+  background: var(--hud-fg);
+  opacity: 1;
+}
+
+/* Desktop preview chrome. Not part of the glasses canvas. */
+.hud-preview {
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: #0b0b0b;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  font-family: ui-monospace, monospace;
+  color: #888;
+}
+
+.hud-preview > * + * {
+  margin-top: 16px;
+}
+
+.hud-preview__controls {
+  display: flex;
+}
+
+.hud-preview__controls > * + * {
+  margin-left: 12px;
+}
+
+.hud-preview__controls button {
+  font: inherit;
+  font-size: 14px;
+  color: #aaa;
+  background: #151515;
+  border: 1px solid #333;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.hud-preview__controls button[aria-pressed="true"] {
+  border-color: #78ee8a;
+  color: #78ee8a;
+}
+
+.hud-preview__frame {
+  position: relative;
+  width: var(--hud-canvas-w);
+  height: var(--hud-canvas-h);
+  outline: 1px solid #222;
+  flex: 0 0 auto;
+}
+
+.hud-preview__frame--2x {
+  width: calc(var(--hud-canvas-w) * 2);
+  height: calc(var(--hud-canvas-h) * 2);
+}
+
+.hud-preview__frame--2x > .hud-canvas {
+  transform: scale(2);
+  transform-origin: 0 0;
+}
+
+/* ?mirror=1: read-only projection stage, no desktop chrome, canvas at 1x top-left. */
+.hud-mirror {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: #000;
+  overflow: hidden;
+}
+
+/* Route-level Suspense fallback: black while a lazy page chunk loads. */
+.hud-loading {
+  min-height: 100vh;
+  background: #000;
+}
+
+.hud-index {
+  font-family: ui-monospace, monospace;
+  background: #0b0b0b;
+  color: #aaa;
+  min-height: 100vh;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.hud-index a {
+  color: #78ee8a;
+}

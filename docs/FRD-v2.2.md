@@ -1,0 +1,112 @@
+# Bedside Glance — FRD v2.2 (hardened)
+
+Track: **Seamless Handoff** · Device: MicroLumin M6 (640×480 waveguide, Android 9) + phone · Freeze: **Sat Nov 21, 2:00 PM ET**.
+All data is synthetic. No PII anywhere (no SSN, address, full MRN, insurance).
+
+## 1. Display budget (640×480 logical, black = see-through)
+
+| Zone | Rect | Rule |
+|---|---|---|
+| Status strip | x40–600, y0–80 | Left `Rm {room} · {name}` (or `Bedside Glance` idle), 22px/700, 75%. Right, 20px/600, 60%: connection (`link` icon + `Linked`, or `link-off` icon + `Not linked` at 75%), then `mic` icon + `Listening` (75%) **only while the mic is genuinely live**, then the clock (`1:42p`) only if it fits. While Critical Allergy is up the whole strip drops to 50%. No rule line. |
+| **Clear zone** | x120–520, y90–290 | **ALWAYS EMPTY. No exceptions.** |
+| Bottom card | x40–600, y300–440 (h140) | `CornerBrackets`: 4 short ticks (16px arms, 2px stroke, no fill, no glow; Critical Allergy only: 24px arms, 3px stroke), padding 16px/8px → **528px inner width, 124px inner height**. Optional progress along the bottom edge. |
+
+Canvas: `background #000`, **Nunito** (one variable latin woff2, `public/fonts/Nunito-Variable.woff2`, weight axis 200-1000), `font-variant-numeric: tabular-nums`, `overflow hidden`. Every text line: `white-space:nowrap; overflow:hidden; text-overflow:ellipsis`. Sentence case everywhere (no `text-transform: uppercase`, no tracking). No glow, blur, gradient, box-shadow or monospace.
+
+| Role | Size / line | Weight | Luminance | Use |
+|---|---|---|---|---|
+| Label | 20 / 22 | 700 | 100% | State name beside its icon |
+| Hero | 36 / 40 | 700 | 100% | The one hero value (about 1.6x body) |
+| Body | 22 / 26 | 600 | 75% | Supporting line |
+| Hint | 20 / 24 | 600 | 75% | The action the wearer can take |
+| Meta / aside | 20 / 22 | 600 | 60% | Metadata, right-aligned on a label or hint line (max 46% of the line) |
+
+Min text 18px, nothing readable under 40% luminance. A card has at most 4 lines (stack 4px apart must fit 124px) and one hero; most have 3. Widths are not assumed: `copyAudit.test.ts` measures every string with the real Nunito file through fontkit (kerning on, per-weight), including worst-case names, doses and clock times, and requires every glyph to be in the font cmap (icons are SVG).
+
+Icons: 24x24 **filled** inline SVG, strokes >= 2px, drawn with `currentColor` (`dot`/`check` = done, `ring` = pending, `diamond` = alert, `triangle` = warning, `link`/`link-off` = connection, `mic` = live input, `scan`). Meaning never relies on colour. Progress: a 2px bar for the 10 s undo window (width only, 360ms ease-out) and a 2-8 dot stepper for "n of m" due. Nothing pulses above 1 Hz; nothing flashes.
+
+Themes: `data-theme="green"` (default, `#78EE8A`, a calmer mint than pure neon) · `data-theme="color"` (`#FFFFFF` / `#FFC24B` / `#FF5C5C`). The critical allergy card uses the alert colour (red in colour mode) at full luminance. Desktop preview: centered on `#0B0B0B`, `Preview 2x` toggle, theme toggle. `?mirror=1`: read-only stage projection (no desktop controls, camera and mic disabled, renders `glassesViewState` from the session).
+
+## 2. Locked copy (v2.2 — use verbatim)
+
+| Where | String |
+|---|---|
+| G4 diabetic line 2 (body) | `Due now · Gluc {value} ({shortTime})` → `Due now · Gluc 182 (11:00a)` |
+| G4 multi-due hint | `Say "done" · +{count} due ("next")` |
+| G4 none due | `None due · Next {medName} {shortTime}` (voice "done" disabled) |
+| G1 not-yet-due | `Due {time} · in {m} min` |
+| G7 wound body line | `Changed {lastTime} · due {nextTime}` → `Changed 9:00 AM · due 9:00 PM` |
+| Voice miss toast (3s) | `Try "done", "vitals", or "close"` |
+| Offline G5 | `Queued · offline` |
+| Conflict banner | `Already given {time} via {device}` |
+| Photo upload failed (glasses) | `Photo not sent · say 'retry'` |
+| Photo upload failed (phone) | `Photo didn't upload` |
+| Sent to doctor (G9) | `Sent to {attending}` (label `Wound note`), shown only after the server accepts `WOUND_SEND` |
+| Patient not assigned to this nurse (G3 hero) | `Not on your list` (label `Scan failed`, hint `Tap to try again`). Applies to a scanned band, a typed patient id and voice "room N". Never sets `activePatientId`; the server refuses `SET_ACTIVE_PATIENT` with the same message. |
+| Too late to undo (toast) | `Too late to undo` |
+
+## 3. Glasses state machine
+
+`G1 Idle/Scan` → `G2 Scanning` → `G3 Scan Failed` | `G4 Meds Card` → `G5 Med Logged` | `G6 PRN` | `G7 Wound prompt` → `H3 capture` → `G8 Wound Assessment` → `G9 Phone Notice`; plus `Vitals` and `Critical Allergy Alert`.
+
+Auto-fade: **G4 and G8 never fade while a patient is loaded.** G5 3s · G6 10s · G9 6s · voice toast 3s. **Critical Allergy Alert never fades; requires spoken/typed "acknowledge".**
+
+Scanner runs only on G1/G2/G3 (4 FPS = 250ms). Off those screens (and except H3, which needs a frame) the camera pump stops and the video track is disabled; it resumes on return to G1-G3 (temple thermals, battery). Crop = center 480×480 of a 1280×720 frame, so edge-of-view wristbands never decode. Dwell: first valid read G1→G2; 3 matching reads within 1.2s → lock patient → G4 + `SET_ACTIVE_PATIENT`. Unknown code or 5s in G2 → G3.
+
+Voice triggers (patient loaded, 60s per-patient per-trigger cooldown): pain regex → G6 if patient has PRN; wound regex → G7 if patient has wound. `"room 12"` / `"room 14"` loads a patient on glasses only (phone chart unchanged).
+
+## 4. Sync contract
+
+- Server in-memory `sessions: Map<id, SessionState>`; `applyAction` is synchronous (single-threaded Node ⇒ FWW is race-free).
+- Session `demo` by default, `?session=<id>` overrides. WS `/ws?session=<id>&device=<glasses|phone|director>`.
+- Every action carries a UUID `clientEventId`; replay of a seen id returns the original result (idempotent).
+- `LOG_MED` on an already-`given` med → `{ok:false, conflict:true, message:"Already given {time} via {via}"}` + authoritative state.
+- `UNDO_LAST_MED`: either device, ≤10,000ms after server `acceptedAtMs`; reverts to `due` on both.
+- Offline: client persists last `SessionState` + `outbox[]` in `localStorage`; `Force Offline` toggle in Director Drawer and desktop debug bar. On reconnect, flush outbox in order and adopt server FWW results.
+- `RESET_SESSION` clears shift, clock, activePatientId, medStatus, woundCaptures, glassesNotice, events, lastMedLog on both devices in <500ms and clears local outbox.
+- **Acknowledgements:** the server answers the dispatching client with `{t:'result', clientEventId, result}` for EVERY action (ok, conflict or failure; a validation error carries the `clientEventId` too). `useSession` exposes `lastResult` and an `onResult` callback; glasses and phone toast refused actions live (`Already given ...`, `Too late to undo`).
+- **Presence:** `{t:'presence', presence:{glasses,phone,director}}` (socket counts for the session) is sent on every connect and disconnect. The phone `Glasses connected` badge reads it. The stage mirror connects as `director`, so it never counts as glasses.
+- **Identity and director capability:** the server derives `device` from the socket (`device=` query), never from the message body. `RESET_SESSION`, `SET_CLOCK_OFFSET`, every `SIM_*` and a `START_SHIFT` with `baseMin` need director capability (`device=director` or `director=1` on the connection; with env `DIRECTOR_KEY` set, also a matching `key`), else the result is `{ok:false, message:"Director only"}`. The nurse's plain `START_SHIFT` is allowed from the phone. The idempotency cache is keyed `device:clientEventId` per session. Sessions are capped at 50 (oldest idle evicted); `/ws/stt` at 4 concurrent sockets.
+- **Validation bounds:** `START_SHIFT.baseMin` is an integer 0..1439, `SET_CLOCK_OFFSET` is finite within +-1440, notice text is a string of at most 200 characters, `SET_GLASSES_VIEW` and `payload` are size bounded, and non-finite numbers are rejected.
+- **Photo:** the glasses resize to 512 px wide JPEG at quality 0.65; the client waits at most 4 s for an assessment, then shows the sample result.
+- **Heartbeat and wake:** client `{t:'ping'}` every 10s, server `{t:'pong'}`; no traffic within 5s of a ping means the socket is dead (actions queue in the outbox, reconnect at once). `visibilitychange` (visible), `pageshow` and `online` also force an immediate reconnect (iPhone sleep). The server also pings every 15s and terminates a socket that misses two pongs, so presence is honest.
+- **Event cursor:** every recorded event has a monotonic `seq`; `eventSeq` is the newest and survives `RESET_SESSION`. A client acts on each event once (cursor = last seq acted on). A fresh page load adopts the current `eventSeq` as its cursor after its first `state` frame and replays nothing. A reconnect within the same page session keeps its cursor, so a director command sent while the glasses were offline still runs once (a RESET or a lower `eventSeq` re-baselines).
+- **Wound lifecycle (server-authoritative, `woundCaptures[]`):** `WoundCapture {captureId, patientId, status: captured|pending_review|saved|sent, photoUploadFailed, finding, comparison, draftNote, source: glasses|director, assessmentSource?: gemini|fallback|unavailable (G8 and P3 label it "AI result" or, for a fallback, "Photo only" with the non-clinical text "No AI review - see phone" (the server records the real source per captureId and overrides client claims); `unavailable` = no photo, text `Assessment unavailable: no photo captured`, no finding, cannot be sent), capturedAtMs, sentTo?, reply?}`. Actions: `WOUND_CAPTURED` (glasses H3 result with the assessment; with `photoUploadFailed:true` and no assessment when the upload fails; upsert by `captureId`), `WOUND_RETRY_UPLOAD` (same `captureId`, clears the flag), `WOUND_SAVE`, `WOUND_SEND` (marks `sent`, sets `sentTo`, glasses notice `Sent to {attending}`; refused with `No assessment to send` when `assessmentSource` is `unavailable`). The glasses G8 "send" dispatches `WOUND_SEND` with the `captureId` and shows the confirmation only after the server ack (hint `Sending to {attending}…` until then), `DR_REPLY` (reply on the capture plus a G9 notice, `kind:'dr_reply'`). Idempotent by `clientEventId`; first-write-wins by `captureId`: a second save/send returns `{ok:false, conflict:true, message:"Already sent to {attending}"}` and changes nothing. The 5s simulated doctor reply is a timer in `server/index.ts` (never inside `applyAction`), cancelled by `RESET_SESSION`; `SIM_DR_REPLY` fires it immediately. `GET /api/wound-photo/:captureId` serves the uploaded JPEG for P3.
+- **Wave 2A contract:**
+  - `LOG_MED.earlyConfirmed?: boolean`, `LOG_MED.scanLocked?: boolean`. A med whose `dueAt` is more than 30 demo minutes away is refused `{ok:false, needsConfirm:true, message:"Not due until {time}"}` unless `earlyConfirmed:true`. `scanLocked` (set by the glasses when a real wristband scan locked this patient) adds `Wristband matched` to the feed chain.
+  - `TELEMETRY_SAMPLE {metric: scanToCardMs|doneToAckMs|assessMs, ms}` from glasses/phone: last 20 per metric in `SessionState.telemetry`, cleared by `RESET_SESSION`, never an event. `GET /api/telemetry?session=demo` returns `{session, telemetry}`; `node scripts/export-telemetry.mjs [--url http://host:3001] [--session demo]` prints the markdown table for `docs/decisions/kill-gate.md`. `/glasses?debug=1` shows p50 / max and the WebView Chrome version.
+  - `UNDO_LAST_MED` after 10 s returns `Too late to undo`.
+  - Bus vs feed: `events[]` is the command bus the glasses replay (it keeps `SIM_*`; `SET_GLASSES_VIEW` and `TELEMETRY_SAMPLE` are no longer recorded). `SessionState.feed[]` (last 60) is the activity feed for P4: only med and wound events, each `{seq, atMs, kind: med_given|med_undone|wound_captured|wound_saved|wound_sent|dr_reply, device, patientId, patientName, room, medName, timeLabel, chain[]}` with a verification chain such as `Wristband matched`, `Nurse confirmed via voice|tap|phone`, `Server accepted`.
+  - Allergy: meds may carry `allergyClasses` (additive); `shared/allergy.ts checkAllergy(patient, med)` matches them to the chart allergies. The glasses show Critical Allergy (filled diamond + `Allergy`, the drug as hero, `Chart lists Penicillin allergy`, `Say "acknowledge"`) for a due or newly added conflicting order; it never blocks logging. `SIM_ADD_CONFLICT_ORDER` (director) injects `Amoxicillin 250 mg PO` (class penicillin) for P-1012 into `SessionState.extraOrders` so the alert is real.
+  - Heard/listening: `Listening` in the strip only while the mic is genuinely live (the voice engine emits `{type:'mic', live}`: tier 1 after `getUserMedia` resolved, tier 2 on the recognizer's `onaudiostart`, never at tier 3 or on a mere request); `Heard: {command}` for 1.5 s after a recognized command; `Try "done", "vitals", or "close"` on a miss.
+  - The glasses adopt a patient set elsewhere (the phone scanned): a change of `activePatientId` loads that card (assignment check applies) with no dispatch back; the mirror shows it when no glasses push a view.
+- **Assignment:** the server refuses `SET_ACTIVE_PATIENT` for an id not in `nurse.assignedPatientIds` (`data/patients.json`) with `Not on your list`.
+- `SIM_FAIL_PHOTO_UPLOAD` toggles `photoUploadShouldFail` (true, false, true...); uploads fail while it is on; the Director button shows `Toggle Photo Fail: ON|OFF`. `SIM_CAPTURE_WOUND` makes the glasses run a real capture with `/data/wound-fallback.jpg` (loads Rm 12 first if no patient), so the director reaches G8 without a tap.
+- Director sim commands over the same WS: `SIM_SCAN_RM_12`, `SIM_SCAN_RM_14`, `SIM_VOICE_DONE`, `SIM_VOICE_NEXT`, `SIM_VOICE_UNDO`, `SIM_TRIGGER_PAIN`, `SIM_TRIGGER_WOUND`, `SIM_CAPTURE_WOUND`, `SIM_SEND_TO_PHONE`, `SIM_FAIL_PHOTO_UPLOAD`, `SIM_DR_REPLY`, `SIM_ALLERGY_ALERT`, `SIM_CLOCK_PLUS_30` (see §6 correction).
+
+## 5. Demo clock
+
+Shift start sets the clock to **1:42 PM (822 min)**, running 1:1 with real time. A med is actionable ("Due now") when `dueMinutes − nowMinutes ≤ 30`. At start: Metformin 2:00 PM = 18 min (due now); Aspirin 2:10 PM = 28 min (due now); Atorvastatin 2:30 PM = 48 min (NOT due); Oxycodone PRN 10:15 AM + 4h = 2:15 PM = 33 min.
+
+## 6. Spec correction (found while writing issues)
+
+The brief gives James Carter two `due` meds "to test `next` cycling", but under the ≤30-min rule only Aspirin is due at 1:42 PM; Atorvastatin (2:30 PM) becomes due at 2:00 PM, 18 real minutes later. **Fix: add a Director `[Clock +30m]` control (`SIM_CLOCK_PLUS_30` → adds 30 to a `clockOffsetMin` in session state).** Seed data stays exactly as briefed. `RESET_SESSION` zeroes the offset.
+
+## 7. Acceptance criteria (14)
+
+Numbers 4, 10, 12, 13, 14 match the original brief; the rest are numbered by us.
+
+1. **Start Shift** on phone starts the 1:42 PM demo clock; glasses and phone both show it.
+2. **Scan → patient:** a band at 5cm in center view goes G1→G2→G4 in ≤2s and phone P2 auto-opens that patient.
+3. **Meds card content:** Maria shows Metformin due now, the Penicillin allergy diamond visible on the action line, and `Due now · Gluc 182 (11:00a)`.
+4. **Center-only decode:** a valid band in the outer frame edge never decodes.
+5. **Voice "done"** logs the med, shows G5 for 3s, and phone shows `{time} · via glasses` in <1s.
+6. **First-write-wins:** log on phone, then say "done" on glasses (and the reverse) → loser sees `Already given {time} via {device}`; exactly one winner.
+7. **Undo ≤10s** from either device reverts on both; after 10s it fails cleanly.
+8. **Context triggers:** pain → G6 only if PRN; wound → G7 only if wound record; 60s cooldown honored.
+9. **Wound flow:** capture → phone P3 banner + side-by-side → send to Dr. Okafor → glasses `Sent to Dr. Okafor` (after the ack) → 5s reply on phone and G9.
+10. **Module boundary:** zero imports from `src/apps/` and zero Bedside-Glance strings in `src/hud-kit/` (automated).
+11. **Display law:** no text overflow, clear zone empty, all text ≥18px, theme switch green↔color works, zero-PII audit passes.
+12. **Multi-med "next":** James Carter with two due meds cycles with "next"; empty due list shows `None due · Next …` and disables "done".
+13. **Photo retry:** simulated upload failure shows both failure strings; "retry" re-uploads the cached photo for the same `captureId`.
+14. **Offline:** Force Offline → `Not linked` / `Queued · offline` / phone `Reconnecting…`; on reconnect the outbox flushes in order and FWW reconciles.

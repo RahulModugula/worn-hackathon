@@ -1,0 +1,12 @@
+{
+  "_notice": "Synthetic demo copy. Used when no AI review is available: deliberately non-clinical (photo saved, nurse writes the assessment).",
+  "woundAssessment": {
+    "finding": "Photo saved. No AI review.",
+    "comparison": "No AI review: no photo comparison was made.",
+    "draftNote": "Wound photo taken. Nurse assessment:"
+  },
+  "drReply": {
+    "from": "Dr. Okafor",
+    "text": "Looks good. Continue dressing plan. Call if redness spreads."
+  }
+}

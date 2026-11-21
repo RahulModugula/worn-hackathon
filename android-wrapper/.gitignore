@@ -1,0 +1,14 @@
+# Build outputs and local machine files for the Android wrapper.
+# The prebuilt debug APK is tracked via an exception in the root .gitignore.
+.gradle/
+build/
+app/build/
+local.properties
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+!prebuilt/*.apk

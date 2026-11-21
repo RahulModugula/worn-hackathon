@@ -1,0 +1,29 @@
+# The MicroLumin SDK kit is CONFIDENTIAL (organizer rule): never commit it.
+kit
+kit/
+MicroLumin*/
+Microlumin*/
+*.zip
+*.apk
+!android-wrapper/prebuilt/*.apk
+Pods/
+build/
+DerivedData/
+xcuserdata/
+.gradle/
+.idea/
+local.properties
+.DS_Store
+.env
+.env.*
+
+# Node / build
+node_modules/
+dist/
+*.log
+!.env.example
+
+# Per-machine Claude Code config and private coaching notes (never public)
+.claude/
+private-notes/
+coverage/

@@ -1,0 +1,68 @@
+{
+  "_notice": "Synthetic demo data only. No PII. Times are 24h local clock strings (HH:MM).",
+  "nurse": {
+    "id": "N-01",
+    "name": "Priya S.",
+    "assignedPatientIds": ["P-1012", "P-1014"]
+  },
+  "patients": [
+    {
+      "id": "P-1012",
+      "qrPayload": "BG-P-1012",
+      "name": "Maria Lopez",
+      "age": 64,
+      "room": "12",
+      "attending": "Dr. Okafor",
+      "allergies": ["Penicillin"],
+      "diabetic": true,
+      "glucose": { "valueMgDl": 182, "takenAt": "11:00" },
+      "meds": [
+        { "id": "M-1", "name": "Metformin", "dose": "500 mg", "route": "PO", "dueAt": "14:00", "status": "scheduled" },
+        { "id": "M-2", "name": "Lisinopril", "dose": "10 mg", "route": "PO", "dueAt": "18:00", "status": "scheduled" }
+      ],
+      "prn": [
+        { "id": "PRN-1", "name": "Oxycodone", "dose": "5 mg", "lastGivenAt": "10:15", "intervalHours": 4 }
+      ],
+      "wound": {
+        "site": "left lower leg, surgical incision",
+        "lastChangedAt": "09:00",
+        "intervalHours": 12,
+        "note": "Clean, dry, intact",
+        "previousPhoto": "/data/wound-previous.jpg"
+      },
+      "vitals": {
+        "bp": "132/84",
+        "hr": 88,
+        "tempF": 98.6,
+        "spo2": 97,
+        "takenAt": "12:00",
+        "nextAt": "16:00"
+      }
+    },
+    {
+      "id": "P-1014",
+      "qrPayload": "BG-P-1014",
+      "name": "James Carter",
+      "age": 71,
+      "room": "14",
+      "attending": "Dr. Nguyen",
+      "allergies": ["Sulfa"],
+      "diabetic": false,
+      "glucose": null,
+      "meds": [
+        { "id": "M-3", "name": "Atorvastatin", "dose": "20 mg", "route": "PO", "dueAt": "14:30", "status": "scheduled" },
+        { "id": "M-4", "name": "Aspirin", "dose": "81 mg", "route": "PO", "dueAt": "14:10", "status": "scheduled" }
+      ],
+      "prn": [],
+      "wound": null,
+      "vitals": {
+        "bp": "118/76",
+        "hr": 72,
+        "tempF": 98.2,
+        "spo2": 98,
+        "takenAt": "12:30",
+        "nextAt": "16:30"
+      }
+    }
+  ]
+}

@@ -1,0 +1,141 @@
+/* /impact: impact model and leave-behind. Same tokens as the phone (phone/tokens.css), Geist throughout.
+   Phone first at 390 px; the projector at 1280x720 scales the headline and puts the calculator beside its outputs. */
+
+.im-app {
+  box-sizing: border-box;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--fg);
+  font: var(--w-regular) var(--t-16) / 1.5 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  padding: calc(env(safe-area-inset-top) + var(--s-5)) calc(env(safe-area-inset-right) + var(--s-4))
+    calc(env(safe-area-inset-bottom) + var(--s-7)) calc(env(safe-area-inset-left) + var(--s-4));
+  overflow-x: clip;
+}
+.im-app *, .im-app *::before, .im-app *::after { box-sizing: border-box; }
+:where(.im-app) :where(h1, h2, h3, p, ul, dl, dd) { margin: 0; padding: 0; }
+:where(.im-app) ul { list-style: none; }
+.im-main { max-width: 70rem; margin: 0 auto; }
+.im-app :is(input, a, button):focus-visible, .im-input-wrap:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Hero: the headline is the one big thing on the page. Hierarchy is lightness (fg-2 then fg), not colour. */
+.im-kicker { display: flex; align-items: center; gap: var(--s-2); margin-bottom: var(--s-5); font-size: var(--t-14); font-weight: var(--w-semibold); color: var(--fg-2); }
+.im-headline { font-size: var(--t-36); line-height: 1.08; font-weight: var(--w-semibold); letter-spacing: -0.035em; max-width: 24ch; overflow-wrap: anywhere; }
+.im-headline span { display: block; }
+.im-headline span:first-child { color: var(--fg-2); }
+.im-accent { color: var(--fg); }
+.im-math {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3);
+  width: fit-content; max-width: 100%; margin-top: var(--s-5); padding: var(--s-3) var(--s-4);
+  border-radius: var(--r-ctrl); background: var(--surface-1); color: var(--fg-2);
+  font-family: var(--font-mono); font-size: var(--t-14); line-height: 1.5; overflow-wrap: anywhere;
+}
+.im-sub { margin-top: var(--s-4); color: var(--fg-2); max-width: 60ch; }
+
+.im-h2 { font-size: var(--t-20); font-weight: var(--w-semibold); letter-spacing: -0.015em; margin-bottom: var(--s-4); }
+.im-h3 { font-size: var(--t-16); font-weight: var(--w-semibold); overflow-wrap: anywhere; }
+.im-small { font-size: var(--t-14); color: var(--fg-2); margin-bottom: var(--s-3); line-height: 1.5; max-width: 70ch; }
+.im-note { margin-top: var(--s-3); }
+.im-note-inline { color: var(--fg-2); }
+.im-section { margin-top: var(--s-7); padding-top: var(--s-5); border-top: 1px solid var(--line); }
+
+/* Badges: the word is always printed, colour is a bonus. */
+.im-badge {
+  display: inline-flex; align-items: center; min-height: 22px; padding: 0 var(--s-2); border-radius: var(--r-chip);
+  font-size: var(--t-12); font-weight: var(--w-semibold); line-height: 1; white-space: nowrap; vertical-align: middle;
+}
+.im-badge-built { background: var(--accent-bg); color: var(--accent); }
+.im-badge-sourced, .im-badge-estimate, .im-badge-assumption { padding: 0; min-height: 0; background: transparent; color: var(--fg-3); font-weight: var(--w-medium); }
+.im-badge-next { background: var(--surface-3); color: var(--fg-2); }
+
+/* Calculator */
+.im-calc { display: grid; gap: var(--s-5); }
+.im-inputs { display: grid; gap: var(--s-4); }
+.im-field { display: flex; flex-direction: column; gap: var(--s-2); }
+.im-field-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); flex-wrap: wrap; }
+.im-label { font-weight: var(--w-semibold); font-size: var(--t-14); }
+.im-input-wrap {
+  display: flex; align-items: center; gap: var(--s-2); min-height: var(--tap); padding: 0 var(--s-4);
+  background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r-ctrl);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.im-input-wrap:focus-within { border-color: var(--accent); }
+.im-input { flex: 1; min-width: 0; padding: var(--s-3) 0; border: 0; outline: none; background: transparent; color: var(--fg); font: inherit; font-size: var(--t-16); font-variant-numeric: tabular-nums; }
+.im-affix { color: var(--fg-2); }
+.im-hint { font-size: var(--t-12); color: var(--fg-2); line-height: 1.4; }
+.im-field:has([aria-invalid="true"]) .im-hint { color: var(--warn); }
+
+.im-outputs { display: grid; gap: var(--s-3); }
+.im-out { display: grid; gap: var(--s-1); padding: var(--s-4); border-radius: var(--r-card); background: var(--surface-1); }
+.im-out:first-child { background: var(--accent-bg); }
+.im-out:first-child .im-out-value { color: var(--accent); }
+.im-out-label { font-size: var(--t-14); color: var(--fg-2); display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-2); }
+.im-out-value { font-size: var(--t-28); line-height: 1.1; font-weight: var(--w-semibold); letter-spacing: -0.025em; overflow-wrap: anywhere; }
+.im-out-sub { font-size: var(--t-12); color: var(--fg-2); }
+
+/* Sources: a real table on wide screens, stacked rows on phones */
+.im-caption { text-align: left; font-size: var(--t-16); font-weight: var(--w-semibold); padding: var(--s-4) 0 var(--s-2); caption-side: top; }
+.im-table { width: 100%; border-collapse: collapse; font-size: var(--t-14); }
+.im-table th, .im-table td { text-align: left; vertical-align: top; padding: var(--s-3) var(--s-3) var(--s-3) 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.im-table th { color: var(--fg-2); font-weight: var(--w-medium); font-size: var(--t-12); }
+.im-num { font-weight: var(--w-semibold); white-space: nowrap; }
+
+/* Use cases */
+.im-cards { display: grid; gap: var(--s-3); }
+.im-card { padding: var(--s-4); border-radius: var(--r-card); background: var(--surface-1); }
+.im-card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); margin-bottom: var(--s-2); flex-wrap: wrap; }
+.im-card .im-small { margin-bottom: 0; }
+
+.im-footer { margin-top: var(--s-7); padding-top: var(--s-4); border-top: 1px solid var(--line); color: var(--fg-2); font-size: var(--t-14); }
+
+@media (min-width: 720px) {
+  .im-app { padding-top: var(--s-6); }
+  .im-headline { font-size: 3.25rem; max-width: none; }
+  .im-calc { grid-template-columns: 1.1fr 1fr; align-items: start; gap: var(--s-6); }
+  .im-inputs { grid-template-columns: 1fr 1fr; column-gap: var(--s-4); }
+  .im-cards { grid-template-columns: 1fr 1fr; }
+  .im-table th, .im-table td { padding-right: var(--s-4); }
+}
+@media (min-width: 1200px) {
+  .im-headline { font-size: 3.5rem; }
+}
+
+/* Phone: table rows become stacked blocks, so no horizontal page scroll */
+@media (max-width: 559px) {
+  .im-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .im-table, .im-table tbody, .im-table tr, .im-table td { display: block; width: 100%; }
+  .im-table tr { border-bottom: 1px solid var(--line); padding: var(--s-3) 0; }
+  .im-table td { border: 0; padding: 2px 0; }
+  .im-table td[data-label="Figure"] { font-weight: var(--w-semibold); }
+  .im-table td[data-label="Source"] { color: var(--fg-2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .im-app * { transition: none !important; animation: none !important; }
+}
+
+/* Print: a clean one-page leave-behind on white paper */
+@page { size: letter; margin: 12mm; }
+@media print {
+  .im-app { background: #fff; color: #000; padding: 0; min-height: 0; font-size: 11pt; }
+  .im-app *, .im-app *::before, .im-app *::after { color: #000 !important; }
+  .im-headline { font-size: 20pt; max-width: none; }
+  .im-h2 { font-size: 13pt; }
+  .im-h3 { font-size: 11pt; }
+  .im-small, .im-sub, .im-math, .im-hint, .im-out-label, .im-out-sub, .im-note-inline, .im-table td[data-label="Source"] { font-size: 9pt; }
+  .im-card, .im-out, .im-input-wrap, .im-math { background: #fff !important; border: 1px solid #888 !important; }
+  .im-badge { border: 1px solid #000 !important; background: #fff !important; font-size: 8pt; }
+  .im-section { margin-top: 10pt; padding-top: 6pt; border-top-color: #888; page-break-inside: avoid; }
+  .im-table { font-size: 9pt; }
+  .im-table th, .im-table td { padding: 3pt 6pt 3pt 0; border-bottom-color: #bbb; }
+  .im-cards { grid-template-columns: 1fr 1fr; gap: 6pt; }
+  .im-out { padding: 4pt 6pt; }
+  .im-out-value { font-size: 12pt; }
+  .im-calc { grid-template-columns: 1fr 1fr; }
+  .im-inputs { gap: 4pt; }
+  .im-input { font-size: 9pt; padding: 2pt 0; }
+  .im-footer { margin-top: 8pt; font-size: 8pt; }
+}

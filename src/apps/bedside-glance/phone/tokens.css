@@ -1,0 +1,94 @@
+/* Bedside Glance design tokens (docs/DESIGN-SYSTEM.md section 2). Shared by /phone and /impact.
+   Dark-first, OKLCH, depth by lightness steps. No component file may hard-code a colour, a space or a radius. */
+
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/Geist-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/fonts/GeistMono-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+.ph-app, .im-app {
+  color-scheme: dark;
+
+  /* Colour: a faint cool tint (hue 250) on every neutral, one mint accent (hue 158). */
+  --bg: oklch(0.155 0.012 250);
+  --surface-1: oklch(0.2 0.014 250);
+  --surface-2: oklch(0.245 0.016 250);
+  --surface-3: oklch(0.295 0.018 250);
+  --line: oklch(0.3 0.014 250);
+  --line-strong: oklch(0.4 0.016 250);
+  --scrim: oklch(0.08 0.01 250 / 0.72);
+  --fg: oklch(0.965 0.005 250);
+  --fg-2: oklch(0.8 0.012 250);
+  --fg-3: oklch(0.66 0.012 250);
+  --accent: oklch(0.84 0.15 158);
+  --accent-ink: oklch(0.2 0.045 158);
+  --accent-bg: oklch(0.27 0.05 158);
+  --info: oklch(0.79 0.11 235);
+  --info-bg: oklch(0.27 0.05 235);
+  --warn: oklch(0.84 0.15 80);
+  --warn-ink: oklch(0.22 0.05 80);
+  --warn-bg: oklch(0.29 0.06 80);
+  --danger: oklch(0.74 0.17 25);
+  --danger-bg: oklch(0.28 0.08 25);
+  --on-photo: oklch(0.97 0.004 250);
+
+  /* Type: Geist for the interface, Geist Mono only for ids and codes. Scale 12 / 14 / 16 / 20 / 28 / 36. */
+  --font-ui: "Geist", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, Menlo, Consolas, monospace;
+  --t-12: 0.75rem;
+  --t-14: 0.875rem;
+  --t-16: 1rem;
+  --t-20: 1.25rem;
+  --t-28: 1.75rem;
+  --t-36: 2.25rem;
+  --t-clock: 3.5rem;
+  --w-regular: 400;
+  --w-medium: 500;
+  --w-semibold: 600;
+
+  /* Space: 4-pt scale. */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+
+  /* Radius: chips 10, controls 14, cards 16, sheets 24. Dots, rings and avatars are round. */
+  --r-chip: 10px;
+  --r-ctrl: 14px;
+  --r-card: 16px;
+  --r-sheet: 24px;
+  --r-round: 999px;
+
+  /* Sizes */
+  --tap: 48px;
+  --tap-sm: 40px;
+  --tap-min: 44px;
+  --bar-h: 56px;
+  --top-h: 56px;
+  --icon: 24px;
+  --avatar: 44px;
+  --content-w: 30rem;
+
+  /* Elevation: a single soft shadow, only for sheets and the tab bar. */
+  --shadow-sheet: 0 -12px 40px oklch(0.05 0.01 250 / 0.55);
+  --shadow-bar: 0 -1px 0 var(--line), 0 -8px 24px oklch(0.05 0.01 250 / 0.35);
+
+  /* Motion */
+  --dur-fast: 150ms;
+  --dur: 220ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+}

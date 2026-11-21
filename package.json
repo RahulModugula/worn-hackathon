@@ -1,0 +1,79 @@
+{
+  "name": "worn-hackathon",
+  "version": "0.1.0",
+  "description": "Our project for the Worn Smart Glasses Hackathon (MicroLumin M6 glasses). Private repo.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "dev": "concurrently -n web,api -c cyan,green \"vite --host\" \"tsx watch server/index.ts\"",
+    "build": "vite build",
+    "start": "tsx server/index.ts",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "lint-boundary": "node scripts/check-hud-boundary.mjs",
+    "audit-pii": "node scripts/audit-pii.mjs",
+    "check-docs": "node scripts/check-docs.mjs",
+    "check-legacy": "node scripts/check-legacy.mjs",
+    "check-budgets": "node scripts/check-budgets.mjs",
+    "e2e": "node scripts/e2e/run.mjs",
+    "screenshots": "node scripts/screenshots.mjs",
+    "decks": "node scripts/build-decks.mjs",
+    "bench": "node scripts/bench-decode.mjs",
+    "stress": "node scripts/stress/soak.mjs",
+    "check": "npm run typecheck && npm run lint-boundary && npm run audit-pii && npm run check-docs && npm run build && npm run check-legacy && npm run check-budgets && npm test",
+    "doctor": "node scripts/doctor.mjs",
+    "m6:install": "node scripts/m6-install.mjs",
+    "m6:logcat": "node scripts/m6-logcat.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RahulModugula/worn-hackathon.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/RahulModugula/worn-hackathon/issues"
+  },
+  "homepage": "https://github.com/RahulModugula/worn-hackathon#readme",
+  "private": true,
+  "dependencies": {
+    "@google/genai": "^3.6.1",
+    "express": "^5.3.0",
+    "qr": "^0.7.2",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.6",
+    "ws": "^8.23.0"
+  },
+  "devDependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@fontsource-variable/nunito": "^5.3.0",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@types/express": "^5.0.6",
+    "@types/fontkit": "^2.0.9",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/ws": "^8.18.2",
+    "@vitest/coverage-v8": "^5.1.1",
+    "concurrently": "^10.0.7",
+    "fontkit": "^3.0.0",
+    "jsdom": "^31.0.1",
+    "puppeteer-core": "^25.18.1",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.1"
+  },
+  "engines": {
+    "node": ">=22.12"
+  }
+}

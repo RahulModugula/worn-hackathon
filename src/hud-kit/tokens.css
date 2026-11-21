@@ -1,0 +1,75 @@
+/* HUD kit tokens. Source: docs/FRD-v2.2.md section 1 and docs/DESIGN-SYSTEM.md section 4. Generic: no app words here. */
+
+/* One variable rounded sans (latin subset). Weights 500-700 are used. Local file, never a CDN. */
+@font-face {
+  font-family: "Nunito";
+  src: url("/fonts/Nunito-Variable.woff2") format("woff2");
+  font-weight: 200 1000;
+  font-style: normal;
+  font-display: block;
+}
+
+:root {
+  /* Canvas and zones (logical px on the 640x480 waveguide) */
+  --hud-canvas-w: 640px;
+  --hud-canvas-h: 480px;
+  --hud-status-x: 40px;
+  --hud-status-y: 0px;
+  --hud-status-w: 560px;
+  --hud-status-h: 80px;
+  --hud-clear-x: 120px;
+  --hud-clear-y: 90px;
+  --hud-clear-w: 400px;
+  --hud-clear-h: 200px;
+  --hud-card-x: 40px;
+  --hud-card-y: 300px;
+  --hud-card-w: 560px;
+  --hud-card-h: 140px;
+  --hud-card-pad-x: 16px;
+  --hud-card-pad-y: 8px;
+  --hud-bracket-size: 16px;
+  --hud-bracket-stroke: 2px;
+  --hud-bracket-size-emphasis: 24px;
+  --hud-bracket-stroke-emphasis: 3px;
+  --hud-progress-h: 2px;
+
+  /* Type scale: size / line height, all >= 18px. Heavy rounded sans, sentence case, no tracking. */
+  --hud-size-label: 20px;
+  --hud-size-hero: 36px;
+  --hud-size-body: 22px;
+  --hud-size-hint: 20px;
+  --hud-size-meta: 20px;
+  --hud-lh-label: 22px;
+  --hud-lh-hero: 40px;
+  --hud-lh-body: 26px;
+  --hud-lh-hint: 24px;
+  --hud-lh-meta: 22px;
+  --hud-weight-hero: 700;
+  --hud-weight-label: 700;
+  --hud-weight-body: 600;
+  --hud-weight-hint: 600;
+
+  /* Luminance ladder: hero and state 100%, body and action 75%, metadata 60%. Nothing is read below 40%. */
+  --hud-opacity-hero: 1;
+  --hud-opacity-body: 0.75;
+  --hud-opacity-meta: 0.6;
+  --hud-icon-size: 24px;
+  --hud-icon-gap: 10px;
+
+  /* Motion: opacity and width only, 300-400 ms ease-out, nothing above 1 Hz. */
+  --hud-motion: 360ms ease-out;
+}
+
+/* Themes. Default is green: a calmer mint than pure neon so bright rooms do not wash it out. */
+:root,
+[data-theme="green"] {
+  --hud-fg: #78ee8a;
+  --hud-accent: #78ee8a;
+  --hud-alert: #78ee8a;
+}
+
+[data-theme="color"] {
+  --hud-fg: #ffffff;
+  --hud-accent: #ffc24b;
+  --hud-alert: #ff5c5c;
+}
