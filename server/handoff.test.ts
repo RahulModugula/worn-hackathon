@@ -171,6 +171,36 @@ describe('HANDOFF_ACCEPT', () => {
   })
 })
 
+describe('receiver identity: no director, one instance end to end', () => {
+  const SECOND_TAB = 'ffffffff-ffff-4fff-8fff-ffffffffffff'
+  beforeEach(() => { offer() })
+  it('a director-capable peer cannot read back or accept (even from a phone device, even on a fresh instance)', () => {
+    const crit = criticalIndexes(pkt().items)
+    expect(readback(crit[0], { director: true })).toMatchObject({ ok: false, message: "Read back on the receiving nurse's device" })
+    crit.forEach((i) => readback(i))
+    expect(accept({ director: true })).toMatchObject({ ok: false, message: "Accept on the receiving nurse's device" })
+    expect(pkt().status).toBe('offered')
+    expect(accept().ok).toBe(true)
+  })
+  it('a director readback recorded nothing and does not claim the packet for its instance', () => {
+    readback(criticalIndexes(pkt().items)[0], { director: true, instance: SECOND_TAB })
+    expect(pkt().readBack).toEqual([])
+    expect(pkt().readBackByInstance).toBeUndefined()
+  })
+  it('the first read-back instance is recorded; a second tab cannot add read-backs or accept', () => {
+    const crit = criticalIndexes(pkt().items)
+    expect(readback(crit[0]).ok).toBe(true)
+    expect(pkt().readBackByInstance).toBe(RECEIVER)
+    expect(readback(crit[1], { instance: SECOND_TAB })).toMatchObject({ ok: false, message: 'Read back and accept on the same device' })
+    expect(pkt().readBack).toEqual([crit[0]])
+    crit.slice(1).forEach((i) => readback(i))
+    expect(accept({ instance: SECOND_TAB })).toMatchObject({ ok: false, message: 'Read back and accept on the same device' })
+    expect(pkt().status).toBe('offered')
+    expect(accept().ok).toBe(true)
+    expect(pkt().acceptedByInstance).toBe(RECEIVER)
+  })
+})
+
 describe('reset and validation', () => {
   it('RESET_SESSION deletes handoffs (Object.assign does not clear optional keys)', () => {
     offer()
@@ -191,9 +221,10 @@ describe('reset and validation', () => {
     expect('error' in validateAction({ ...base, type: 'HANDOFF_ACCEPT', handoffId: 'ho1' })).toBe(false)
     expect('error' in validateAction({ ...base, type: 'HANDOFF_ACCEPT' })).toBe(true)
   })
-  it('an `instance` in the frame body is dropped: only the server may stamp it', () => {
-    const v = validateAction({ ...base, type: 'HANDOFF_ACCEPT', handoffId: 'ho1', instance: 'forged' })
+  it('an `instance` or `director` in the frame body is dropped: only the server may stamp them', () => {
+    const v = validateAction({ ...base, type: 'HANDOFF_ACCEPT', handoffId: 'ho1', instance: 'forged', director: true })
     expect('action' in v && 'instance' in v.action).toBe(false)
+    expect('action' in v && 'director' in v.action).toBe(false)
   })
   it('a SIM_* payload rides on the bus event as detail; a non-SIM action never records detail', () => {
     act({ type: 'SIM_HANDOFF_OFFER', device: 'director', payload: { toNurseId: 'N-02' } })

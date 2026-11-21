@@ -150,6 +150,8 @@ export interface HandoffPacket {
   createdLabel: string
   /** Indexes into `items` the receiver read back (critical items only). */
   readBack: number[]
+  /** Instance of the first accepted read-back; later read-backs and the accept must come from the same one. */
+  readBackByInstance?: string
   acceptedAtMs?: number
   acceptedLabel?: string
   acceptedByInstance?: string
@@ -205,6 +207,8 @@ interface Base {
    * (`instance=`, uuid-shaped, at most 64 chars); an `instance` in a frame body is ignored.
    */
   instance?: string
+  /** Set by the SERVER when the connection holds director capability; a `director` in a frame body is ignored. */
+  director?: boolean
 }
 
 export type SimActionType =

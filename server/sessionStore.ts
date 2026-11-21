@@ -223,9 +223,10 @@ function nurseName(patients: PatientsData | undefined, id: string): string {
 }
 
 /** The receiving side is any connection instance that is known and is not the one that made the offer (fails closed). */
-function isReceiver(instance: string | undefined, h: HandoffPacket): boolean {
-  return instance !== undefined && instance !== h.offeredByInstance
+function isReceiver(a: { instance?: string; director?: boolean }, h: HandoffPacket): boolean {
+  return !a.director && a.instance !== undefined && a.instance !== h.offeredByInstance
 }
+export const SAME_DEVICE = 'Read back and accept on the same device'
 
 function findMed(s: SessionState, patients: PatientsData | undefined, patientId: string, medKey: string) {
   return patients?.patients.find(p => p.id === patientId)?.meds?.find(m => m.id === medKey)
@@ -341,17 +342,20 @@ function run(s: SessionState, a: Action, now: number, patients?: PatientsData): 
       const h = handoffOf(s, a.handoffId)
       if (!h) return { ok: false, message: 'No such handoff' }
       if (h.status === 'accepted') return { ok: false, conflict: true, message: acceptedText(h, patients) }
-      if (!isReceiver(a.instance, h)) return { ok: false, message: NOT_RECEIVER_READBACK }
+      if (!isReceiver(a, h)) return { ok: false, message: NOT_RECEIVER_READBACK }
+      if (h.readBackByInstance !== undefined && h.readBackByInstance !== a.instance) return { ok: false, message: SAME_DEVICE }
       if (!Number.isInteger(a.index) || a.index < 0 || a.index >= h.items.length) return { ok: false, message: 'No such item' }
       if (!h.items[a.index].critical) return { ok: false, message: 'Not a critical item' }
       if (!h.readBack.includes(a.index)) { h.readBack.push(a.index); h.readBack.sort((x, y) => x - y) }
+      h.readBackByInstance ??= a.instance
       return { ok: true }
     }
     case 'HANDOFF_ACCEPT': {
       const h = handoffOf(s, a.handoffId)
       if (!h) return { ok: false, message: 'No such handoff' }
       if (h.status === 'accepted') return { ok: false, conflict: true, message: acceptedText(h, patients) }
-      if (!isReceiver(a.instance, h)) return { ok: false, message: NOT_RECEIVER_ACCEPT }
+      if (!isReceiver(a, h)) return { ok: false, message: NOT_RECEIVER_ACCEPT }
+      if (h.readBackByInstance !== undefined && h.readBackByInstance !== a.instance) return { ok: false, message: SAME_DEVICE }
       const unread = criticalIndexes(h.items).filter(i => !h.readBack.includes(i)).length
       if (unread > 0) return { ok: false, message: `Read back ${unread} critical items first` }
       const dm = demoMinutes(s, now)
@@ -632,7 +636,7 @@ export function validateAction(raw: unknown): { action: Action } | { error: stri
     case 'SEND_TO_PHONE': if (!str('text')) return { error: 'bad text' }; break
   }
   // `instance` is stamped by the server from the connect query; a client-supplied one is dropped.
-  const { instance: _ignored, ...clean } = o
-  void _ignored
+  const { instance: _ignored, director: _dir, ...clean } = o
+  void _ignored; void _dir
   return { action: clean as unknown as Action }
 }
