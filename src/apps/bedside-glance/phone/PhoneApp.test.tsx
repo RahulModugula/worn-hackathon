@@ -171,7 +171,7 @@ describe('PhoneApp: Director Drawer', () => {
     const labels = within(dialog).getAllByRole('button').map(b => b.textContent);
     // Copy status (preflight, at the top) is the only addition; the FRD list below it is unchanged.
     expect(labels).toEqual([
-      'Close', 'Copy status',
+      'Close', '1 Acknowledge allergy', '2 Chaos: link down + done', '3 Hand off Rm 12', 'Reset to pre-stage', 'Copy status',
       'Start Shift', 'Sim Scan Rm 12', 'Sim Scan Rm 14', 'Voice: Done', 'Voice: Next', 'Voice: Undo',
       'Trigger: Pain', 'Trigger: Wound', 'Capture Wound Photo', 'Demo: Set Dressing', 'Voice: Send to Phone', 'Dr. Reply', 'Trigger Allergy Alert', 'Add Conflicting Order',
       'Toggle Photo Fail: OFF', 'Force Offline', 'Clock +30m', 'RESET DEMO',

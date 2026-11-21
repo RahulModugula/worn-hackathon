@@ -433,6 +433,10 @@
 .ph-dir-danger { padding: var(--s-4); border-radius: var(--r-card); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--danger-bg); }
 .ph-dir-danger .ph-dir-grid { grid-template-columns: 1fr; }
 .ph-confirm { display: grid; gap: var(--s-2); }
+/* Director stage beats: big numbered buttons, each with the cue it stands in for. */
+.ph-dir-stage .ph-dir-beat { display: grid; gap: var(--s-1); }
+.ph-dir-big { min-height: 64px; font-size: var(--t-20); }
+.ph-dir-stage > .ph-btn-danger { margin-top: var(--s-2); }
 .ph-preflight { display: grid; gap: var(--s-3); padding: var(--s-4); border-radius: var(--r-card); background: var(--surface-2); }
 .ph-pf-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); }
 .ph-pf-list { display: grid; }
