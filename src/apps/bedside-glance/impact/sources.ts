@@ -83,9 +83,9 @@ export const MODEL: Stat[] = [
   {
     id: 'loadedCostPerNurseYear',
     label: 'Loaded cost per nurse per year',
-    value: '$143,300',
+    value: '$139,497',
     badge: 'ESTIMATE',
-    source: 'BLS median hospital RN wage $100,220 x 1.43 benefits factor (our estimate). BLS URL to be recorded in docs/PITCH.md.',
+    source: 'BLS median RN wage $97,550 (May 2025, all industries, bls.gov/ooh/healthcare/registered-nurses.htm, read 2026-11-21) x 1.43 benefits factor (our assumption).',
   },
   {
     id: 'benefitFactor',

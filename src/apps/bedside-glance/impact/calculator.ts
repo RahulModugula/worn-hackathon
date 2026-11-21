@@ -4,13 +4,19 @@
 /** ASSUMPTION: a 12-hour paid shift. Cost per minute is loaded cost spread over these minutes. */
 export const SHIFT_MINUTES = 720;
 
+/** SOURCED: BLS Occupational Outlook Handbook, Registered Nurses, median annual pay May 2025 (all industries). Read 2026-11-21. */
+export const RN_MEDIAN_WAGE_USD = 97_550;
+
+/** ASSUMPTION: benefits and overhead multiplier on wage. Our planning factor, not a sourced figure. */
+export const LOADING_MULTIPLIER = 1.43;
+
 export const DEFAULTS = {
   nursesPerUnit: 30,
   units: 1,
   minutesPerShift: 15,
   capturePct: 50,
   devicePriceUsd: 450,
-  loadedCostPerNurseYear: 143300,
+  loadedCostPerNurseYear: Math.round(RN_MEDIAN_WAGE_USD * LOADING_MULTIPLIER), // 139,497
   shiftsPerYear: 173,
   bedsPerNurseOnShift: 5,
   hospitalBeds: 500,

@@ -7,8 +7,8 @@ Source rule: **only say numbers from the "Sourced numbers" table, and say assump
 
 ## Who pays, in 20 seconds (answer Dr. Dai's question first)
 - **Buyer:** hospital nurse managers / CNOs. **Payer:** the health system's nursing and quality budget. First unit: med-surg.
-- **Why they pay:** nurse time and safety. A bedside RN costs about **$143K/yr loaded** (BLS median hospital RN wage $100,220 x 1.43, our estimate). Every minute per shift is worth about **$199/yr per nurse**.
-- **Device price needed:** at 15 min saved per shift and only 50% of it captured, the value is about **$1,490/nurse/year**. Consumer-class glasses ($300-600) pay back in months; a $2,500 enterprise headset needs ~25 min/shift (that is why earlier headset programs stalled). **Our pitch to MicroLumin: a ~$300-600 waveguide display with a camera is exactly the price point where a hospital says yes.** (Assumption: 15 min/shift. No study measures glasses savings yet; the pilot's job is to measure it.)
+- **Why they pay:** nurse time and safety. A bedside RN costs about **$139K/yr loaded** (BLS median RN wage $97,550, May 2025, x 1.43, our assumed benefits multiplier). Every minute per shift is worth about **$194/yr per nurse**. Market: 3,465,400 US RN jobs in 2025, about 59% in hospitals (BLS OOH, read 2026-11-21).
+- **Device price needed:** at 15 min saved per shift and only 50% of it captured, the value is about **$1,450/nurse/year**. Consumer-class glasses ($300-600) pay back in months; a $2,500 enterprise headset needs ~26 min/shift (that is why earlier headset programs stalled). **Our pitch to MicroLumin: a ~$300-600 waveguide display with a camera is exactly the price point where a hospital says yes.** (Assumption: 15 min/shift. No study measures glasses savings yet; the pilot's job is to measure it.)
 - **Pilot ask:** one med-surg unit, 5-10 devices, 90 days, measure scan compliance, documentation minutes, near-misses.
 
 ## Sourced numbers (use these, nothing else)
@@ -40,7 +40,7 @@ The phone already exists (Rover, handhelds). Our answer: the glasses win at the 
 ## Objections and answers
 | Reviewer asks | Answer |
 |---|---|
-| Who actually pays? | The health system. A ~$450 device breaks even at about 4.5 minutes saved per shift (about 2.3 captured at 50%; `calculator.ts`). Payback means device price only, one device per nurse, within one year; it excludes servers, support, training and integration; 15 min/shift is our assumed saving, not a measurement (our arithmetic, BLS wage inputs; the pilot measures real minutes). |
+| Who actually pays? | The health system. A ~$450 device breaks even at about 4.6 minutes saved per shift (about 2.3 captured at 50%; `calculator.ts`). Payback means device price only, one device per nurse, within one year; it excludes servers, support, training and integration; 15 min/shift is our assumed saving, not a measurement (our arithmetic, BLS wage inputs; the pilot measures real minutes). |
 | Why did Glass/HoloLens fail? | Expensive, locked to one vendor, no EHR workflow. We target a low-cost display and a phone-first integration path. |
 | Battery / heat / weight? | Scanner runs at 4 FPS and pauses once a patient is loaded. We have not benchmarked battery yet. Say so. |
 | Is this FDA regulated? | We deliberately stay a documentation aid: no measurement, no staging, nurse decides. A regulatory opinion comes before any alerting expansion. |

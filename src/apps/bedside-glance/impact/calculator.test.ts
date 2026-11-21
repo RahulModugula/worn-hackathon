@@ -8,19 +8,19 @@ describe('computeOutputs at defaults', () => {
   const o = computeOutputs(base);
 
   it('derives loaded cost per paid minute from cost / (shifts x 720 min)', () => {
-    // 143,300 / (173 x 720) = 1.15045...
-    expect(o.costPerNurseMinute).toBeCloseTo(143300 / (173 * 720), 10);
-    expect(o.costPerNurseMinute).toBeCloseTo(1.1505, 3);
+    // 139,497 / (173 x 720) = 1.11992...
+    expect(o.costPerNurseMinute).toBeCloseTo(139497 / (173 * 720), 10);
+    expect(o.costPerNurseMinute).toBeCloseTo(1.1199, 3);
   });
 
   it('values one nurse at 15 min x 173 shifts x $/min x 50% capture', () => {
-    expect(o.valuePerNurseYear).toBeCloseTo(15 * 143300 / 720 * 0.5, 6); // ~1,492.71
+    expect(o.valuePerNurseYear).toBeCloseTo(15 * 139497 / 720 * 0.5, 6); // ~1,453.09
     expect(o.valuePerDeviceYear).toBe(o.valuePerNurseYear);
   });
 
-  it('pays back a $450 device in about 3.6 months', () => {
+  it('pays back a $450 device in about 3.7 months', () => {
     expect(o.paybackMonthsPerDevice).toBeCloseTo(450 / (o.valuePerNurseYear / 12), 6);
-    expect(o.paybackMonthsPerDevice).toBeCloseTo(3.62, 2);
+    expect(o.paybackMonthsPerDevice).toBeCloseTo(3.72, 2);
   });
 
   it('counts devices: 30 per unit, 30 for one unit, 100 for 500 beds at 5 beds per nurse', () => {
@@ -34,9 +34,9 @@ describe('computeOutputs at defaults', () => {
     expect(o.hospitalAnnualValue).toBeCloseTo(o.valuePerNurseYear * 100, 6);
   });
 
-  it('computes break-even minutes for the entered price (about 4.5 min/shift at $450)', () => {
-    expect(o.breakEvenMinutesPerShift).toBeCloseTo(450 / (173 * (143300 / 124560) * 0.5), 6);
-    expect(o.breakEvenMinutesPerShift).toBeCloseTo(4.52, 2);
+  it('computes break-even minutes for the entered price (about 4.6 min/shift at $450)', () => {
+    expect(o.breakEvenMinutesPerShift).toBeCloseTo(450 / (173 * (139497 / 124560) * 0.5), 6);
+    expect(o.breakEvenMinutesPerShift).toBeCloseTo(4.65, 2);
   });
 });
 
@@ -46,7 +46,7 @@ describe('edge cases', () => {
     expect(o.valuePerNurseYear).toBe(0);
     expect(o.paybackMonthsPerDevice).toBeNull();
     expect(o.unitAnnualValue).toBe(0);
-    expect(o.breakEvenMinutesPerShift).toBeCloseTo(4.52, 2);
+    expect(o.breakEvenMinutesPerShift).toBeCloseTo(4.65, 2);
   });
 
   it('0 price: payback is 0 and break-even is 0 (no divide by zero)', () => {
