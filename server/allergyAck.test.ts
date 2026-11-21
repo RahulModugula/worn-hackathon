@@ -51,7 +51,7 @@ describe('LOG_MED on an allergy conflict', () => {
     expect(act({ type: 'LOG_MED', patientId: 'P-1012', medKey: 'M-1', via: 'voice' }, T0 + 1000).ok).toBe(true)
   })
   it('already-given still reports the conflict first', () => {
-    logOrder({ allergyConfirmed: true })
+    logOrder({ allergyConfirmed: true, device: 'phone', via: 'phone' })
     const r = logOrder()
     expect(r.conflict).toBe(true)
   })
@@ -112,5 +112,26 @@ describe('ALLERGY_ACK', () => {
     applyAction(s, a, T0 + 5, pts)
     expect(s.version).toBe(v)
     expect(s.allergyAcks).toHaveLength(1)
+  })
+})
+
+describe('allergy override is a phone-only decision', () => {
+  it('a glasses LOG_MED with allergyConfirmed:true is refused with a clear message and changes nothing', () => {
+    const r = logOrder({ allergyConfirmed: true, device: 'glasses' })
+    expect(r.ok).toBe(false)
+    expect(r.needsConfirm).toBeUndefined()
+    expect(r.message).toBe('Allergy override must be confirmed on the phone')
+    expect(s.medStatus['P-1012:X-1']).toBeUndefined()
+    expect(s.lastMedLog).toBeNull()
+  })
+  it('a director frame cannot carry the override either; the phone can', () => {
+    expect(logOrder({ allergyConfirmed: true, device: 'director' }).ok).toBe(false)
+    expect(logOrder({ allergyConfirmed: true, device: 'phone', via: 'phone' }).ok).toBe(true)
+  })
+  it('SIM_ADD_CONFLICT_ORDER refuses without patient data, so the allergy gate cannot fail open', () => {
+    const bare = newState('bare')
+    const r = applyAction(bare, { clientEventId: 'nb1', device: 'director', type: 'SIM_ADD_CONFLICT_ORDER' } as Action, T0)
+    expect(r.ok).toBe(false)
+    expect(bare.extraOrders).toBeUndefined()
   })
 })

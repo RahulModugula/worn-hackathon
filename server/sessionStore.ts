@@ -263,6 +263,8 @@ function run(s: SessionState, a: Action, now: number, patients?: PatientsData): 
       return { ok: true }
     }
     case 'LOG_MED': {
+      // The override is a deliberate decision made on the phone; a frame from any other device never carries it.
+      if (a.allergyConfirmed === true && a.device !== 'phone') return { ok: false, message: 'Allergy override must be confirmed on the phone' }
       const key = `${a.patientId}:${a.medKey}`
       const known = patients?.patients.find(p => p.id === a.patientId)
       if (patients && (!known || (known.meds && !known.meds.some(m => m.id === a.medKey) && !ownOrders(s, a.patientId)?.some(m => m.id === a.medKey)))) {
@@ -466,7 +468,9 @@ function run(s: SessionState, a: Action, now: number, patients?: PatientsData): 
         if (a.type === 'SIM_ADD_CONFLICT_ORDER') {
           const pid = (a.payload as { patientId?: unknown } | undefined)?.patientId
           const target = typeof pid === 'string' ? pid : 'P-1012'
-          if (patients && !patients.patients.some(p => p.id === target)) return { ok: false, message: 'Unknown patient' }
+          // Without chart data no allergy check can run, so an injected order would fail open: refuse.
+          if (!patients) return { ok: false, message: 'No patient data' }
+          if (!patients.patients.some(p => p.id === target)) return { ok: false, message: 'Unknown patient' }
           const orders = (s.extraOrders ??= {})
           const list = Object.hasOwn(orders, target) ? orders[target] : (orders[target] = [])
           if (list.length === 0) {
