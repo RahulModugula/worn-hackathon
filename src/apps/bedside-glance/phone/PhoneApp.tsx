@@ -7,11 +7,13 @@ import { P3WoundReview, WoundEmpty } from './P3WoundReview';
 import { P4ActivityFeed } from './P4ActivityFeed';
 import { DirectorDrawer, DirectorHandle } from './DirectorDrawer';
 import { ScanTalk } from './ScanTalk';
+import { HandoffSheet } from './HandoffSheet';
+import { HandoffCard } from './HandoffCard';
 import { useBedsideSession } from './useBedsideSession';
 import { Icon } from './Icon';
 import { BrandMark, Button, Sheet, StatusDot, TabBar, Toast, UndoRing, type TabItem } from './ui';
 import {
-  EARLY_REASONS, NURSE, assessmentLabel, captureAssessment, conflictText, isNotYetDue, medStatusOf, patientById, pendingReview,
+  EARLY_REASONS, NURSE, assessmentLabel, nurseFromId, nextNurse, offeredBy, offeredTo, captureAssessment, conflictText, isNotYetDue, medStatusOf, patientById, pendingReview,
   medsWithOrders, sortedPatients, latestCapture, undoLabel, undoRemainingSinceReceipt, withDressingLine,
 } from './model';
 import './tokens.css';
@@ -23,6 +25,15 @@ export interface PhoneAppProps {
   directorOpen?: boolean;
   /** `?scan=1` opens Scan & Talk (Plan B) on load. */
   scanOpen?: boolean;
+  /** `?nurse=N-02`: who is signed in on this phone (the receiving nurse in the handoff beat). Cosmetic label plus handoff routing. */
+  nurseId?: string;
+}
+
+/** Seconds the "Already given" banner stays up after a refused Give. */
+export const GIVEN_BANNER_MS = 6000;
+
+function nurseFromUrl(): string | undefined {
+  try { return new URLSearchParams(window.location.search).get('nurse') ?? undefined; } catch { return undefined; }
 }
 
 type View = { name: 'shift' } | { name: 'patient'; patientId: string | null } | { name: 'wound' } | { name: 'activity' } | { name: 'scan' };
@@ -40,7 +51,8 @@ function useNow(intervalMs: number): number {
   return now;
 }
 
-export function PhoneApp({ sessionId = 'demo', directorOpen = false, scanOpen = false }: PhoneAppProps) {
+export function PhoneApp({ sessionId = 'demo', directorOpen = false, scanOpen = false, nurseId }: PhoneAppProps) {
+  const me = nurseFromId(nurseId ?? nurseFromUrl());
   // Director capability is requested on the socket once the drawer is enabled (?director=1 or the bolt) and kept.
   const [directorEnabled, setDirectorEnabled] = useState(directorOpen);
   const session = useBedsideSession(sessionId, { director: directorEnabled });
@@ -135,6 +147,26 @@ export function PhoneApp({ sessionId = 'demo', directorOpen = false, scanOpen = 
     return () => clearTimeout(id);
   }, [serverConflict, failure, clearConflicts]);
 
+  // A refused Give ("Already given 1:42 PM via glasses") is the closing demo beat: a prominent banner, not a 4 s toast.
+  const [givenBanner, setGivenBanner] = useState<string | null>(null);
+  const givenMsg = [serverConflict, notice].find(m => m && m.startsWith('Already given')) ?? null;
+  const givenKey = givenMsg ? `${givenMsg}|${failure?.seq ?? 0}|${session.conflicts.length}` : '';
+  const givenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!givenMsg) return;
+    setGivenBanner(givenMsg);
+    // The 4 s toast dismissal clears serverConflict mid-way; the banner timer must outlive that, so it is not an effect cleanup.
+    if (givenTimer.current) clearTimeout(givenTimer.current);
+    givenTimer.current = setTimeout(() => setGivenBanner(null), GIVEN_BANNER_MS);
+    // givenKey identifies one refusal; the message alone would not re-arm the timer on a repeat.
+  }, [givenKey]);
+  useEffect(() => () => { if (givenTimer.current) clearTimeout(givenTimer.current); }, []);
+
+  // Handoff: the receiving nurse's sheet opens for an offer addressed to this nurse; "Not now" hides it until a new offer.
+  const incoming = offeredTo(state, me.id);
+  const [dismissedHandoff, setDismissedHandoff] = useState<string | null>(null);
+  const sheetOpen = !!incoming && dismissedHandoff !== incoming.handoffId;
+
   useEffect(() => {
     if (!notice) return;
     const id = setTimeout(() => setNotice(null), 4000);
@@ -200,6 +232,9 @@ export function PhoneApp({ sessionId = 'demo', directorOpen = false, scanOpen = 
         hasPendingWound={!!pending && pending.patientId === patientId}
         undo={undo}
         woundLabel={patientId ? woundLabelFor(patientId) : undefined}
+        handoff={patientId && patientById(patientId) && me.id === NURSE.id && nextNurse(me.id) ? (
+          <HandoffCard patient={patientById(patientId)!} me={me} packet={offeredBy(state, me.id, patientId)} send={send} />
+        ) : undefined}
       />
     );
   } else if (view.name === 'wound') {
@@ -225,7 +260,7 @@ export function PhoneApp({ sessionId = 'demo', directorOpen = false, scanOpen = 
   } else {
     body = (
       <P1Shift
-        nurseName={NURSE.name}
+        nurseName={me.name}
         nowMin={nowMin}
         started={started}
         rows={rows}
@@ -259,7 +294,8 @@ export function PhoneApp({ sessionId = 'demo', directorOpen = false, scanOpen = 
     if (brandTaps.current.length >= 3) { brandTaps.current = []; openDirector(); }
   };
   const photoFailed = !!wound && wound.photoUploadFailed && wound.status === 'captured' && view.name !== 'wound';
-  const toastNotice = serverConflict ?? notice;
+  const plain = (m: string | null) => (m && m.startsWith('Already given') ? null : m);
+  const toastNotice = plain(serverConflict) ?? plain(notice);
 
   return (
     <div className={scanning ? 'ph-app ph-app-scan' : 'ph-app'} data-testid="phone-app">
@@ -270,6 +306,7 @@ export function PhoneApp({ sessionId = 'demo', directorOpen = false, scanOpen = 
           <span className="ph-wordmark">Bedside Glance</span>
         </button>
         <div className="ph-top-chips">
+          <p className="ph-chip ph-tone-neutral" data-testid="nurse-label"><Icon name="user" size={16} />{me.name}</p>
           <p role="status" className={offline ? 'ph-chip ph-tone-warn' : 'ph-chip ph-tone-accent'}>
             <StatusDot tone={offline ? 'warn' : 'accent'} hollow={offline} />
             {offline ? 'Reconnecting…' : <>Connected<span className="ph-sr-only"> to demo session</span></>}
@@ -290,6 +327,20 @@ export function PhoneApp({ sessionId = 'demo', directorOpen = false, scanOpen = 
         </button>
       )}
 
+      {givenBanner && (
+        <p role="alert" className="ph-given-banner" data-testid="given-banner">
+          <Icon name="alert" size={24} />
+          <span>{givenBanner}</span>
+        </p>
+      )}
+
+      {incoming && !sheetOpen && (
+        <button type="button" className="ph-banner-sticky" onClick={() => setDismissedHandoff(null)}>
+          <Icon name="user" size={20} />
+          <span>Handoff waiting for you · Open</span>
+        </button>
+      )}
+
       <main className="ph-main">{body}</main>
 
       <div className="ph-toast-layer">
@@ -299,6 +350,10 @@ export function PhoneApp({ sessionId = 'demo', directorOpen = false, scanOpen = 
       </div>
 
       {!scanning && <TabBar items={tabs} active={view.name} onSelect={onTab} />}
+
+      {incoming && sheetOpen && (
+        <HandoffSheet packet={incoming} send={send} lastResult={lastResult} onClose={() => setDismissedHandoff(incoming.handoffId)} />
+      )}
 
       {early && <EarlySheet early={early} onConfirm={confirmEarly} onCancel={() => setEarly(null)} />}
 

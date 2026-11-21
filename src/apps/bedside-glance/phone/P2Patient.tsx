@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { SessionState } from '../../../../shared/types';
 import { hhmmToMinutes, longTime } from '../../../../shared/clock';
 import {
@@ -24,6 +25,8 @@ interface Props {
   undo: UndoInfo | null;
   /** Assessment label of the newest wound photo, e.g. "No AI review". */
   woundLabel?: string;
+  /** Handoff card (HandoffCard), shown above the wound section. */
+  handoff?: ReactNode;
 }
 
 const GROUPS: { id: MedGroup; title: string }[] = [
@@ -32,7 +35,7 @@ const GROUPS: { id: MedGroup; title: string }[] = [
   { id: 'given', title: 'Given' },
 ];
 
-export function P2Patient({ patient, state, nowMin, onLogMed, onNotice, onWound, onShift, hasPendingWound, undo, woundLabel }: Props) {
+export function P2Patient({ patient, state, nowMin, onLogMed, onNotice, onWound, onShift, hasPendingWound, undo, woundLabel, handoff }: Props) {
   if (!patient) {
     return (
       <section className="ph-view" aria-labelledby="p2-empty">
@@ -144,6 +147,8 @@ export function P2Patient({ patient, state, nowMin, onLogMed, onNotice, onWound,
           </p>
         </Card>
       </div>
+
+      {handoff}
 
       {patient.wound && (
         <div className="ph-group">

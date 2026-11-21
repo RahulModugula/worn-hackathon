@@ -2,7 +2,7 @@
 import patientsJson from '../../../../data/patients.json';
 import { DRESSING_LABELS } from '../../../../shared/types';
 import type {
-  Action, AssessmentSource, Device, FeedEntry, WoundDressing, LastMedLog, MedStatus, SessionState, TelemetryMetric, WoundCapture,
+  Action, HandoffPacket, AssessmentSource, Device, FeedEntry, WoundDressing, LastMedLog, MedStatus, SessionState, TelemetryMetric, WoundCapture,
 } from '../../../../shared/types';
 import { hhmmToMinutes, isActionable, longTime, minutesUntil } from '../../../../shared/clock';
 
@@ -17,13 +17,16 @@ export interface Patient {
 }
 export interface Assessment { finding: string; comparison: string; draftNote: string; source: AssessmentSource }
 
-interface PatientsFile { nurse: { id: string; name: string; assignedPatientIds?: string[] }; patients: Patient[] }
+export interface RosterNurse { id: string; name: string }
+interface PatientsFile { nurse: { id: string; name: string; assignedPatientIds?: string[] }; handoffNurses?: RosterNurse[]; patients: Patient[] }
 
 /** Seconds an Undo stays available after a med log (server UNDO_WINDOW_MS). */
 export const UNDO_WINDOW_MS = 10_000;
 
 // JSON literal types are too narrow (e.g. `glucose: null` vs object), so cast once here.
 export const NURSE = (patientsJson as unknown as PatientsFile).nurse;
+/** Nurses a handoff can go to (data/patients.json handoffNurses). */
+export const HANDOFF_NURSES: RosterNurse[] = (patientsJson as unknown as PatientsFile).handoffNurses ?? [];
 export const PATIENTS = (patientsJson as unknown as PatientsFile).patients;
 
 export function patientById(id: string | null | undefined): Patient | undefined {
@@ -197,6 +200,11 @@ export function eventLabel(type: string): string {
     SET_GLASSES_NOTICE: 'Glasses notice',
     SEND_TO_PHONE: 'Message to phone',
     RESET_SESSION: 'Demo reset',
+    ALLERGY_ACK: 'Allergy alert acknowledged',
+    WOUND_SET_DRESSING: 'Dressing documented',
+    HANDOFF_OFFER: 'Handoff offered',
+    HANDOFF_READBACK: 'Critical item read back',
+    HANDOFF_ACCEPT: 'Handoff accepted',
   };
   const scan = /^SIM_SCAN_RM_(\d+)$/.exec(type);
   if (scan) return `Wristband scan simulated, Rm ${scan[1]}`;
@@ -290,4 +298,40 @@ export function minToTimeInput(min: number): string {
 export function timeInputToMin(v: string): number | null {
   const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(v);
   return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+
+// ---------- handoff (FRD v2.2 section 4): the phone only displays and dispatches; the server decides ----------
+
+/** `?nurse=N-02` to a roster nurse; anything not on the roster means the default signed-in nurse. */
+export function nurseFromId(id: string | null | undefined): RosterNurse {
+  return HANDOFF_NURSES.find(n => n.id === id) ?? { id: NURSE.id, name: NURSE.name };
+}
+
+/** The next roster nurse after `meId` (wraps), or undefined when the roster has nobody else. */
+export function nextNurse(meId: string): RosterNurse | undefined {
+  const others = HANDOFF_NURSES.filter(n => n.id !== meId);
+  if (others.length === 0) return undefined;
+  const i = HANDOFF_NURSES.findIndex(n => n.id === meId);
+  return HANDOFF_NURSES.slice(i + 1).find(n => n.id !== meId) ?? others[0];
+}
+
+export function nurseName(id: string): string {
+  return HANDOFF_NURSES.find(n => n.id === id)?.name ?? id;
+}
+
+/** The open offer waiting for this nurse (newest), or null. */
+export function offeredTo(state: SessionState | null, nurseId: string): HandoffPacket | null {
+  const list = (state?.handoffs ?? []).filter(h => h.status === 'offered' && h.toNurseId === nurseId);
+  return list.length ? list[list.length - 1] : null;
+}
+
+/** Newest packet this nurse offered for a patient, or null. */
+export function offeredBy(state: SessionState | null, nurseId: string, patientId: string): HandoffPacket | null {
+  const list = (state?.handoffs ?? []).filter(h => h.fromNurseId === nurseId && h.patientId === patientId);
+  return list.length ? list[list.length - 1] : null;
+}
+
+/** Critical item indexes not yet read back. */
+export function unreadCritical(p: HandoffPacket): number[] {
+  return p.items.flatMap((it, i) => (it.critical && !p.readBack.includes(i) ? [i] : []));
 }
