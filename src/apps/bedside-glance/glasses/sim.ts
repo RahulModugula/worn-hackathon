@@ -30,6 +30,7 @@ export function simHandling(type: string, s: GState): SimHandling | null {
     }
     case 'SIM_ADD_CONFLICT_ORDER': return { events: [] }; // the order lands in session.extraOrders; the glasses derive the alert from data
     case 'SIM_CLOCK_PLUS_30': return { events: [] }; // the session clock offset already moves the due list
+    case 'SIM_DRESSING_PRESET': return { events: [] }; // the server writes it on the capture; the glasses read it from session data
     case 'SIM_DR_REPLY': return { events: [] }; // the server answers with DR_REPLY, which arrives as a notice
     default: return null;
   }

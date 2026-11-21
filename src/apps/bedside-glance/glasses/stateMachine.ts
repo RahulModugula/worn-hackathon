@@ -56,7 +56,11 @@ export interface SessionCtx {
   hasLastLog: boolean;
   /** Director-injected orders (SIM_ADD_CONFLICT_ORDER), keyed by patient id. */
   extraOrders?: Record<string, Med[]>;
+  /** Nurse-entered dressing times per patient id (newest capture wins). Absent = show the chart default. */
+  dressings?: Record<string, GlassesDressing>;
 }
+/** Minutes since midnight; nextDueMin is null for "per protocol". */
+export interface GlassesDressing { changedMin: number; nextDueMin: number | null }
 export const EMPTY_SESSION: SessionCtx = { medStatus: {}, clock: null, clockOffsetMin: 0, hasLastLog: false };
 
 export interface Notice { label?: string; text: string }
@@ -322,7 +326,7 @@ function onIntent(s: GState, intent: Intent, now: number, force: boolean, via: '
       return done(enter(s, 'G6', now, { cooldowns: { ...s.cooldowns, [`${p.id}:pain`]: now } }));
     }
     case 'wound': {
-      if (!p || !p.wound || !cooldownOk(s, p.id, 'wound', now)) return done(s);
+      if (!p || !p.wound || !(force || cooldownOk(s, p.id, 'wound', now))) return done(s); // a Director-forced trigger skips the cooldown
       if (!(TRIGGER_FROM.includes(scr) || (force && scr !== 'H3'))) return done(s);
       return done(enter(s, 'G7', now, { cooldowns: { ...s.cooldowns, [`${p.id}:wound`]: now } }));
     }
