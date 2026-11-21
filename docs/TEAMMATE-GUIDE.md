@@ -103,10 +103,19 @@ If the glasses camera, mic or buttons do not work: the glasses only **show** the
 
 ## 9. Rules that protect the team
 - Run `npm run check` before every push; a red GitHub run emails the CTO.
-- One branch, small commits, no force-push. Ask the lead before merging to main after 1:30 PM.
+- Use `npm run ship` (it pushes to main after the checks). No force-push, no `--no-verify`. Ask the lead before changing anything after 1:30 PM; after 2:00 PM `ship` refuses.
 - Do not edit `src/hud-kit/` to mention patients, meds or wounds (a test fails if you do).
 - Do not install the kit's files, APKs or docs into this repo.
 - Everything here is fake data. Do not type real patient info anywhere.
+
+## 11. Changing things safely
+You push straight to main; the computer checks your work first so nobody can break the demo by accident.
+1. Edit (with Claude Code or by hand). Preview with `npm start`.
+2. Ship: `npm run ship -- "what you changed, in a sentence"`. It checks everything (about a minute), saves, pulls teammates' latest, pushes, and marks this version as the last one known to work.
+3. If it stops, it says why in plain English. Paste the first error to your AI assistant: "fix this without weakening any test or guard".
+4. Not sure the app is OK? `npm run health` prints PASS / WARN / FAIL with a fix for each.
+5. Something is broken and you cannot fix it fast? `npm run rollback` restores the last good version (your work is saved on a backup branch first). Add `-- --push` to share it.
+6. Never run `git push --no-verify` or `--force`. After 2:00 PM Saturday `ship` refuses by design. Full details: [docs/GUARDRAILS.md](GUARDRAILS.md).
 
 ## 10. Quick fixes
 | Problem | Do this |
