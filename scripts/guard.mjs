@@ -47,7 +47,7 @@ function run() {
   add('deps', checkBannedInManifest(pkg));
   add('files', checkRequiredFiles((f) => existsSync(path.join(ROOT, f))));
   if (existsSync(path.join(ROOT, '.github/CODEOWNERS'))) add('owners', checkCodeowners(readText('.github/CODEOWNERS')));
-  if (existsSync(path.join(ROOT, '.github/workflows/ci.yml'))) add('ci', checkWorkflow(readText('.github/workflows/ci.yml')));
+  add('ci', checkWorkflow(readText('.github/ci/ci.yml.template'))); // CI is an opt-in template; validate it so it cannot rot
   if (existsSync(path.join(ROOT, '.github/ruleset-main.json'))) add('ruleset', checkRuleset(readText('.github/ruleset-main.json')));
   if (existsSync(path.join(ROOT, '.gitattributes'))) add('lf', checkGitattributes(readText('.gitattributes')));
   add('frd', checkFrdGuardPresent((f) => existsSync(path.join(ROOT, f)), readText));

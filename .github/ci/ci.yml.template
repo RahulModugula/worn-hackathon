@@ -1,0 +1,93 @@
+# TEMPLATE, not active. To enable CI, copy this file to .github/workflows/ci.yml (same name).
+# Copying needs a token with the `workflow` scope, or GitHub rejects the push. Actions may be unavailable.
+# The local guards (pre-push, npm run ship, npm run health) are the primary enforcement. See docs/GUARDRAILS.md, "Enabling CI".
+# OPTIONAL extra. The local guards (pre-push hook, `npm run ship`, `npm run health`) are the real enforcement.
+# If GitHub Actions is disabled or out of minutes, nothing here is required by anything. See docs/GUARDRAILS.md.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      # ubuntu-latest ships Google Chrome; scripts/e2e/lib.mjs reads CHROME_PATH (falls back to /usr/bin/google-chrome*).
+      - run: npm run smoke
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+      - run: npm run e2e
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+
+  freeze:
+    name: freeze
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Fail after the freeze unless the PR has the freeze-exception label
+        env:
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          FREEZE_EXCEPTION: ${{ vars.FREEZE_EXCEPTION }}
+        run: node scripts/freeze-guard.mjs --labels "$LABELS"
+
+  last-known-good:
+    name: last-known-good
+    # Only after a green push to main, and never for edits made after the freeze.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [ci, e2e, freeze]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: true # this one job pushes the tag
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - run: node scripts/lkg-tag.mjs

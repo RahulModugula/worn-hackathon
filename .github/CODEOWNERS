@@ -1,0 +1,13 @@
+# ADVISORY ONLY. Teammates push directly; nothing requires a review (see docs/GUARDRAILS.md).
+# This file documents which paths are protected: changing them means their invariant tests must pass
+# (scripts/lib/protected.mjs lists the tests; the pre-push hook runs everything).
+# Teammates are free to edit: src/apps/*/phone/ (phone UI), public/, data/, docs/ (except the FRD).
+/server/ @RahulModugula
+/shared/ @RahulModugula
+/src/hud-kit/ @RahulModugula
+/scripts/ @RahulModugula
+/.github/ @RahulModugula
+/.githooks/ @RahulModugula
+/CLAUDE.md @RahulModugula
+/**/CLAUDE.md @RahulModugula
+/docs/FRD-v2.2.md @RahulModugula

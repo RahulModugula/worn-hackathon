@@ -85,7 +85,7 @@ export function checkPackageScripts(pkg) {
 export const REQUIRED_FILES = [
   'CLAUDE.md', 'server/CLAUDE.md', 'src/hud-kit/CLAUDE.md', 'android-wrapper/CLAUDE.md',
   'docs/TEAMMATE-GUIDE.md', 'docs/GUARDRAILS.md', 'docs/FRD-v2.2.md', '.github/CODEOWNERS', '.github/PULL_REQUEST_TEMPLATE.md',
-  '.github/workflows/ci.yml', '.github/ruleset-main.json', '.githooks/pre-push', '.githooks/pre-push.mjs', '.gitattributes', '.env.example',
+  '.github/ci/ci.yml.template', '.github/ruleset-main.json', '.githooks/pre-push', '.githooks/pre-push.mjs', '.gitattributes', '.env.example',
   'scripts/guard-allowlist.json', 'scripts/lib/diffguards.mjs', 'scripts/ship.mjs', 'scripts/rollback.mjs', 'scripts/health.mjs',
 ];
 export function checkRequiredFiles(exists) {
@@ -108,18 +108,18 @@ export const REQUIRED_JOBS = ['ci', 'e2e', 'freeze'];
 // CI is an optional extra: harmless if it never runs, never privileged by accident.
 export function checkWorkflow(text) {
   const out = [];
-  for (const j of REQUIRED_JOBS) if (!new RegExp(`^\\s+name:\\s*${j}\\s*$`, 'm').test(text)) out.push(`ci.yml: job named "${j}" is missing`);
-  if ((text.match(/contents:\s*write/g) ?? []).length > 1) out.push('ci.yml: "contents: write" may appear only once (the tag-moving job)');
-  if (!/workflow_dispatch/.test(text)) out.push('ci.yml: workflow_dispatch is missing (so it can be run by hand)');
-  if (!/persist-credentials:\s*false/.test(text)) out.push('ci.yml: checkout must set persist-credentials: false');
-  if (!/timeout-minutes:/.test(text)) out.push('ci.yml: jobs need timeout-minutes');
+  for (const j of REQUIRED_JOBS) if (!new RegExp(`^\\s+name:\\s*${j}\\s*$`, 'm').test(text)) out.push(`ci.yml.template: job named "${j}" is missing`);
+  if ((text.match(/contents:\s*write/g) ?? []).length > 1) out.push('ci.yml.template: "contents: write" may appear only once (the tag-moving job)');
+  if (!/workflow_dispatch/.test(text)) out.push('ci.yml.template: workflow_dispatch is missing (so it can be run by hand)');
+  if (!/persist-credentials:\s*false/.test(text)) out.push('ci.yml.template: checkout must set persist-credentials: false');
+  if (!/timeout-minutes:/.test(text)) out.push('ci.yml.template: jobs need timeout-minutes');
   for (const m of text.matchAll(/^\s*-?\s*uses:\s*(\S+)/gm)) {
-    if (!/@[0-9a-f]{40}$/.test(m[1])) out.push(`ci.yml: action ${m[1]} is not pinned to a full commit SHA`);
+    if (!/@[0-9a-f]{40}$/.test(m[1])) out.push(`ci.yml.template: action ${m[1]} is not pinned to a full commit SHA`);
   }
-  if (!/^permissions:\s*\n\s+contents:\s*read\s*$/m.test(text)) out.push('ci.yml: top-level "permissions: contents: read" is missing');
-  if (!/cancel-in-progress:\s*true/.test(text)) out.push('ci.yml: concurrency cancel-in-progress is missing');
-  if (!/node-version:\s*["']?22/.test(text)) out.push('ci.yml: Node 22 is not pinned');
-  if (/pull_request_target/.test(text)) out.push('ci.yml: pull_request_target is not allowed (runs untrusted code with secrets)');
+  if (!/^permissions:\s*\n\s+contents:\s*read\s*$/m.test(text)) out.push('ci.yml.template: top-level "permissions: contents: read" is missing');
+  if (!/cancel-in-progress:\s*true/.test(text)) out.push('ci.yml.template: concurrency cancel-in-progress is missing');
+  if (!/node-version:\s*["']?22/.test(text)) out.push('ci.yml.template: Node 22 is not pinned');
+  if (/pull_request_target/.test(text)) out.push('ci.yml.template: pull_request_target is not allowed (runs untrusted code with secrets)');
   return out;
 }
 

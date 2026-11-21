@@ -72,7 +72,7 @@ export function checkEnvNames(entries, stagedPaths = []) {
 }
 
 // 3. Hidden characters in added lines (Trojan Source, CVE-2021-42574; zero-width tricks)
-const HIDDEN = /[‪-‮⁦-⁩​-‍﻿]/;
+const HIDDEN = /[\u202A-\u202E\u2066-\u2069\u200B-\u200D\uFEFF]/;
 export function checkHiddenChars(files) {
   const out = [];
   for (const f of files) f.added.forEach((l) => {

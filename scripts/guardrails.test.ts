@@ -30,7 +30,7 @@ describe('real repo passes the repo guards', () => {
   it('real package.json, CODEOWNERS, workflow, ruleset, gitattributes are valid', () => {
     expect(checkPackageScripts(JSON.parse(read('package.json')))).toEqual([]);
     expect(checkCodeowners(read('.github/CODEOWNERS'))).toEqual([]);
-    expect(checkWorkflow(read('.github/workflows/ci.yml'))).toEqual([]);
+    expect(checkWorkflow(read('.github/ci/ci.yml.template'))).toEqual([]);
     expect(checkRuleset(read('.github/ruleset-main.json'))).toEqual([]);
     expect(checkGitattributes(read('.gitattributes'))).toEqual([]);
     expect(checkRequiredFiles((f: string) => existsSync(path.join(ROOT, f)))).toEqual([]);
@@ -110,7 +110,7 @@ describe('required files, CODEOWNERS, workflow, ruleset, gitattributes, FRD guar
     const owners = read('.github/CODEOWNERS').replace(/^\/server\/.*$/m, '');
     expect(checkCodeowners(owners).join()).toContain('server/');
   });
-  const wf = read('.github/workflows/ci.yml');
+  const wf = read('.github/ci/ci.yml.template');
   it('workflow needs the job names, pinned SHAs, read-only token, concurrency, Node 22, manual trigger', () => {
     expect(checkWorkflow(wf.replace(/name: e2e/, 'name: browser')).join()).toContain('"e2e"');
     expect(checkWorkflow(wf.replace(/(uses: actions\/checkout@)[0-9a-f]{40}/, '$1v4')).join()).toContain('not pinned');
@@ -120,6 +120,18 @@ describe('required files, CODEOWNERS, workflow, ruleset, gitattributes, FRD guar
     expect(checkWorkflow(wf.replace(/workflow_dispatch/, 'nothing')).join()).toContain('workflow_dispatch');
     expect(checkWorkflow(wf + '\n  pull_request_target:\n').join()).toContain('pull_request_target');
     expect(checkWorkflow(wf + '\npermissions:\n  contents: write\n').join()).toContain('only once');
+  });
+  it('a planted bad template written to disk is refused (the guard can fail on the template)', () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'ci-template-'));
+    try {
+      const bad = path.join(dir, 'ci.yml.template');
+      writeFileSync(bad, wf.replace(/uses: actions\/checkout@[0-9a-f]{40}/, 'uses: actions/checkout@v4'));
+      const out = checkWorkflow(readFileSync(bad, 'utf8')).join();
+      expect(out).toContain('ci.yml.template');
+      expect(out).toContain('not pinned');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
   it('ruleset may only block force-push and deletion', () => {
     const good = JSON.stringify({ rules: [{ type: 'non_fast_forward' }, { type: 'deletion' }] });
