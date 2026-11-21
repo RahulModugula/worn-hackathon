@@ -39,6 +39,10 @@ export interface SessionLike {
   synced?: boolean;
   /** Live acknowledgements (conflicts, 'Too late to undo'). Returns an unsubscribe. */
   subscribeResults?: (cb: (r: ResultLike) => void) => () => void;
+  /** Actions that sat in the outbox and were just flushed (with how long they waited). Returns an unsubscribe. */
+  subscribeFlushed?: (cb: (e: { clientEventId: string; queuedMs: number; action: { type: string } }) => void) => () => void;
+  /** Sockets per device role (server presence). Lets the stage mirror notice that the glasses left. */
+  presence?: Record<string, number>;
   dispatch(action: GlassesAction & { device: string }): { clientEventId: string };
   setForceOffline(v: boolean): void;
 }
@@ -120,6 +124,9 @@ export function choosePlatform(bridge: M6Bridge | object | null): PlatformAdapte
   return b && typeof b.onFrame === 'function' ? createMicroLuminPlatform(b) : createBrowserPlatform();
 }
 
+/** SIM_CHAOS_DROP with thenDone: the wearer says "done" this long after the link drops. */
+const CHAOS_DONE_AFTER_MS = 1500;
+
 /** A glasskey and its twin DOM keydown (the Android wrapper sends both) must count once. */
 const GLASSKEY_DEDUPE_MS = 300;
 
@@ -160,7 +167,7 @@ export function GlassesAppCore(props: GlassesAppCoreProps) {
   /** LOG_MED dispatch time per clientEventId, for done-to-ack latency (online dispatches only). */
   const logT0 = useRef(new Map<string, number>());
   const scanT0 = useRef<number | null>(null);
-  const samples = useRef<Record<TelemetryMetric, number[]>>({ scanToCardMs: [], doneToAckMs: [], assessMs: [] });
+  const samples = useRef<Record<TelemetryMetric, number[]>>({ scanToCardMs: [], doneToAckMs: [], assessMs: [], outboxQueuedMs: [] });
   const lastFrame = useRef<RgbaFrame | null>(null);
   const scannerRef = useRef<QrScanner | null>(null);
   const cameraRef = useRef<PlatformAdapter['camera'] | null>(null);
@@ -204,12 +211,12 @@ export function GlassesAppCore(props: GlassesAppCoreProps) {
   }, [mirror, syncScanner, syncCamera]);
 
   /** Keeps the sample for the debug bar and reports it to the server (online only: a queued sample would be stale). */
-  const sample = (metric: TelemetryMetric, ms: number): void => {
+  const sample = (metric: TelemetryMetric, ms: number, connected = false): void => {
     if (!Number.isFinite(ms) || ms < 0) return;
     const arr = samples.current[metric];
     arr.push(Math.round(ms));
     if (arr.length > 20) arr.shift();
-    if (sessionRef.current.offline) return;
+    if (sessionRef.current.offline && !connected) return;
     try { sessionRef.current.dispatch({ type: 'TELEMETRY_SAMPLE', metric, ms: Math.round(ms), device: 'glasses' } as GlassesAction & { device: string }); } catch { /* telemetry never breaks the app */ }
   };
 
@@ -457,6 +464,7 @@ export function GlassesAppCore(props: GlassesAppCoreProps) {
       simCaptureArmed.current = h.simCapture === true;
       for (const ge of h.events) send(ge);
       simCaptureArmed.current = false;
+      if (h.chaos) runChaos(h.chaos.ms, h.chaos.thenDone);
     }
     if (noticeKey && noticeKey !== seen.current.notice) {
       seen.current.notice = noticeKey;
@@ -491,6 +499,35 @@ export function GlassesAppCore(props: GlassesAppCoreProps) {
       else if (r.action?.type === 'HANDOFF_OFFER') send({ type: 'toast', text: r.message || 'Handoff not sent' });
     });
   }, [mirror, subscribeResults, send]);
+
+  // ---- offline outbox: how long each action waited before it was flushed ----
+  const subscribeFlushed = session.subscribeFlushed;
+  useEffect(() => {
+    if (mirror || !subscribeFlushed) return;
+    return subscribeFlushed((e) => {
+      // Telemetry and view pushes would feed back into themselves; only real commands are timed. The flush itself proves we are connected.
+      if (e.action.type === 'TELEMETRY_SAMPLE' || e.action.type === 'SET_GLASSES_VIEW') return;
+      sample('outboxQueuedMs', Math.min(e.queuedMs, 600_000), true);
+    });
+    // sample only touches refs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mirror, subscribeFlushed]);
+
+  // ---- Director chaos: go offline, optionally say "done" while dark, come back (client timers only) ----
+  const chaosTimers = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+  const chaosActive = useRef(false);
+  const clearChaos = (): void => { for (const tm of chaosTimers.current) clearTimeout(tm); chaosTimers.current = []; };
+  const runChaos = (ms: number, thenDone: boolean): void => {
+    clearChaos();
+    chaosActive.current = true;
+    sessionRef.current.setForceOffline(true);
+    if (thenDone) chaosTimers.current.push(setTimeout(() => send({ type: 'intent', intent: 'done', via: 'voice' }), CHAOS_DONE_AFTER_MS));
+    chaosTimers.current.push(setTimeout(() => { chaosActive.current = false; sessionRef.current.setForceOffline(false); }, ms));
+  };
+  useEffect(() => () => {
+    clearChaos();
+    if (chaosActive.current) { chaosActive.current = false; try { sessionRef.current.setForceOffline(false); } catch { /* unmounting */ } }
+  }, []);
 
   // ---- scan lock -> G4 render latency: measured once the committed render shows the Meds card ----
   useEffect(() => {
@@ -533,7 +570,10 @@ export function GlassesAppCore(props: GlassesAppCoreProps) {
   const nowMs = nowFn();
   let view: GState = stateRef.current;
   if (mirror) {
-    const base = { ...initialState(PATIENTS, ASSIGNED), session: sessionCtx(session.state), offline: session.offline };
+    // The glasses push their view only while online, so when they drop it freezes. Presence says they are gone:
+    // show the frozen view as Not linked. No pushed view yet (display-only flow, glasses ARE the mirror) stays as is.
+    const glassesGone = session.presence?.glasses === 0 && session.state?.glassesViewState != null;
+    const base = { ...initialState(PATIENTS, ASSIGNED), session: sessionCtx(session.state), offline: session.offline || glassesGone };
     view = fromViewState(session.state?.glassesViewState, base, nowMs) ?? base;
     // Display-only flow: no glasses are pushing a view, but the phone set the patient. Show that card.
     const active = session.state?.activePatientId;
@@ -593,7 +633,7 @@ export function GlassesAppCore(props: GlassesAppCoreProps) {
   );
 }
 
-const BAR_LABEL: Array<[TelemetryMetric, string]> = [['scanToCardMs', 'scan>card'], ['doneToAckMs', 'done>ack'], ['assessMs', 'assess']];
+const BAR_LABEL: Array<[TelemetryMetric, string]> = [['scanToCardMs', 'scan>card'], ['doneToAckMs', 'done>ack'], ['assessMs', 'assess'], ['outboxQueuedMs', 'queued']];
 
 /** /glasses?debug=1: p50 / max per metric (this device's last 20) and the WebView's Chrome version. */
 export function TelemetryBar({ samples, ua }: { samples: Record<TelemetryMetric, number[]>; ua?: string }) {
@@ -639,10 +679,13 @@ export function GlassesApp(props: GlassesAppProps) {
   const mirror = props.mirror === true;
   const resultSubs = useRef(new Set<(r: ResultLike) => void>());
   const subscribeResults = useCallback((cb: (r: ResultLike) => void) => { resultSubs.current.add(cb); return () => { resultSubs.current.delete(cb); }; }, []);
+  const flushedSubs = useRef(new Set<NonNullable<Parameters<NonNullable<SessionLike['subscribeFlushed']>>[0]>>());
+  const subscribeFlushed = useCallback<NonNullable<SessionLike['subscribeFlushed']>>((cb) => { flushedSubs.current.add(cb); return () => { flushedSubs.current.delete(cb); }; }, []);
   const s = useSession<SessionState, Action>({
     url: wsUrl(sessionId, mirror),
     storageKey: `bg-glasses-${sessionId}${mirror ? '-mirror' : ''}`,
     onResult: (e) => resultSubs.current.forEach((cb) => cb(e)),
+    onFlushed: (e) => flushedSubs.current.forEach((cb) => cb({ clientEventId: e.clientEventId, queuedMs: e.queuedMs, action: { type: String(e.action.type) } })),
   });
   const platform = useMemo<PlatformAdapter | null>(() => {
     if (mirror) return null;
@@ -655,7 +698,9 @@ export function GlassesApp(props: GlassesAppProps) {
     outbox: s.outbox,
     conflicts: s.conflicts,
     synced: s.synced,
+    presence: s.presence,
     subscribeResults,
+    subscribeFlushed,
     dispatch: (a) => s.dispatch(a as never),
     setForceOffline: s.setForceOffline,
   };

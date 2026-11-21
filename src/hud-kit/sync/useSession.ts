@@ -71,6 +71,10 @@ export interface ClientOptions<S = unknown, A = unknown> {
   /** Heartbeat: ping every pingMs; no traffic within pongTimeoutMs after a ping means the socket is dead. 0 disables. */
   pingMs?: number
   pongTimeoutMs?: number
+  /** Reads the state's version for ping reports. Default: the numeric `version` field. */
+  versionOf?: (s: S) => number | undefined
+  /** Called for each action that sat in the outbox and was just flushed, with how long it waited (ms). */
+  onFlushed?: (e: { clientEventId: string; queuedMs: number; action: A }) => void
 }
 
 export interface Snapshot<S, A> {
@@ -84,6 +88,8 @@ export interface Snapshot<S, A> {
   /** True once the server has sent its state on the CURRENT connection (persisted state is not synced). */
   synced: boolean
   lastResult: ResultEvent<S, A> | null
+  /** Round trip of the last ping/pong on this connection (ms), or null before the first pong. */
+  rttMs: number | null
 }
 
 export function createSessionClient<S, A extends BaseAction>(opts: ClientOptions<S, A>) {
@@ -108,6 +114,17 @@ export function createSessionClient<S, A extends BaseAction>(opts: ClientOptions
   let synced = false
   let lastResult: ResultEvent<S, A> | null = null
   let resultSeq = 0
+  const versionOf = opts.versionOf ?? ((s: S) => { const v = (s as { version?: unknown } | null)?.version; return typeof v === 'number' ? v : undefined })
+  /** Send time per ping sequence number `n` still waiting for its pong (the server echoes `n`). */
+  let pingSent = new Map<number, number>()
+  let pingSeq = 0
+  let rttMs: number | null = null
+  /** When the current outage began (socket drop, or Force Offline); reported once as offlineMs on the next ping. */
+  let offlineAt: number | null = null
+  let verTimer: ReturnType<typeof setTimeout> | null = null
+  let reportedV: number | undefined
+  /** When each queued action entered the outbox (this page session only). */
+  const queuedAt = new Map<string, number>()
   const sentActions = new Map<string, A>()
   let pingTimer: ReturnType<typeof setInterval> | null = null
   let pongTimer: ReturnType<typeof setTimeout> | null = null
@@ -121,7 +138,7 @@ export function createSessionClient<S, A extends BaseAction>(opts: ClientOptions
 
   const persist = () => { try { storage?.setItem(opts.storageKey, JSON.stringify({ state, outbox })) } catch { /* ignore */ } }
   const publish = () => {
-    snap = { state, offline: forced || !connected, forceOffline: forced, outbox: [...outbox], conflicts: [...conflicts], presence, synced, lastResult }
+    snap = { state, offline: forced || !connected, forceOffline: forced, outbox: [...outbox], conflicts: [...conflicts], presence, synced, lastResult, rttMs }
     persist()
     listeners.forEach(l => l())
   }
@@ -140,7 +157,29 @@ export function createSessionClient<S, A extends BaseAction>(opts: ClientOptions
     try { opts.onResult?.(e) } catch { /* a consumer bug must not break sync */ }
   }
 
+  /** Health report for the server: state version, outbox depth, last measured round trip, and (once) how long we were away. */
+  function sendPing(sock: WsLike) {
+    const v = state === null ? undefined : versionOf(state)
+    reportedV = v
+    const n = ++pingSeq
+    const ping: Record<string, unknown> = { t: 'ping', n, q: outbox.length }
+    if (v !== undefined) ping.v = v
+    if (rttMs !== null) ping.rtt = rttMs
+    if (offlineAt !== null) { ping.offlineMs = Math.max(0, Date.now() - offlineAt); offlineAt = null }
+    try { sock.send(JSON.stringify(ping)) } catch { return }
+    pingSent.set(n, Date.now())
+    if (pingSent.size > 8) pingSent.delete(pingSent.keys().next().value as number)
+  }
+  /** A newer state version is reported soon after it lands (debounced), so the Director sees convergence in real time. */
+  function scheduleVersionPing() {
+    if (verTimer || pingMs <= 0 || !ws) return
+    const sock = ws
+    verTimer = setTimeout(() => { verTimer = null; if (ws === sock && connected) sendPing(sock) }, 150)
+  }
+
   function stopHeartbeat() {
+    if (verTimer) { clearTimeout(verTimer); verTimer = null }
+    pingSent = new Map()
     if (pingTimer) { clearInterval(pingTimer); pingTimer = null }
     if (pongTimer) { clearTimeout(pongTimer); pongTimer = null }
   }
@@ -149,7 +188,7 @@ export function createSessionClient<S, A extends BaseAction>(opts: ClientOptions
     if (pingMs <= 0) return
     pingTimer = setInterval(() => {
       if (ws !== sock) return
-      try { sock.send(JSON.stringify({ t: 'ping' })) } catch { /* dead already */ }
+      sendPing(sock);
       if (!pongTimer) pongTimer = setTimeout(() => { pongTimer = null; if (ws === sock) reconnectNow() }, pongTimeoutMs)
     }, pingMs)
   }
@@ -158,7 +197,11 @@ export function createSessionClient<S, A extends BaseAction>(opts: ClientOptions
     let m: { t?: string; state?: S; clientEventId?: string; result?: SyncResult<S>; presence?: Record<string, number>; message?: string }
     try { m = JSON.parse(String(ev.data)) } catch { return }
     if (pongTimer) { clearTimeout(pongTimer); pongTimer = null } // any traffic proves the socket is alive
-    if (m.t === 'pong') return
+    if (m.t === 'pong') {
+      const t0 = typeof (m as { n?: unknown }).n === 'number' ? pingSent.get((m as { n: number }).n) : undefined
+      if (t0 !== undefined) { pingSent.delete((m as { n: number }).n); rttMs = Math.max(0, Date.now() - t0); publish() }
+      return
+    }
     if (m.t === 'state' && m.state) { state = m.state; synced = true }
     else if (m.t === 'presence' && m.presence && typeof m.presence === 'object') { presence = m.presence }
     else if (m.t === 'error' && m.clientEventId) {
@@ -168,7 +211,7 @@ export function createSessionClient<S, A extends BaseAction>(opts: ClientOptions
     else if (m.t === 'result' && m.result && m.clientEventId) {
       state = m.result.state ?? state
       emitResult(m.clientEventId, m.result)
-      if (m.result.clearOutbox) { outbox = []; conflicts = [] }
+      if (m.result.clearOutbox) { outbox = []; conflicts = []; queuedAt.clear() }
       else {
         const before = outbox.length
         outbox = outbox.filter(a => a.clientEventId !== m.clientEventId)
@@ -178,6 +221,7 @@ export function createSessionClient<S, A extends BaseAction>(opts: ClientOptions
       }
     }
     publish()
+    if (state !== null && versionOf(state) !== reportedV) scheduleVersionPing()
   }
 
   function connect() {
@@ -188,14 +232,21 @@ export function createSessionClient<S, A extends BaseAction>(opts: ClientOptions
       if (ws !== sock) return
       connected = true; attempt = 0
       startHeartbeat(sock)
-      for (const a of outbox) { remember(a); rawSend(a) } // flush in order; results arrive in order
+      if (pingMs > 0) sendPing(sock) // report version, queue depth and the outage length BEFORE the flush drains the queue
+      const flushAt = Date.now()
+      for (const a of outbox) {
+        remember(a); rawSend(a) // flush in order; results arrive in order
+        const t0 = queuedAt.get(a.clientEventId)
+        queuedAt.delete(a.clientEventId)
+        if (t0 !== undefined) { try { opts.onFlushed?.({ clientEventId: a.clientEventId, queuedMs: Math.max(0, flushAt - t0), action: a }) } catch { /* telemetry must not break sync */ } }
+      }
       publish()
     }
     sock.onmessage = onMessage
     sock.onerror = () => { /* close follows */ }
     sock.onclose = () => {
       if (ws !== sock) return
-      ws = null; connected = false; synced = false; presence = {}; stopHeartbeat(); publish()
+      ws = null; connected = false; synced = false; presence = {}; offlineAt ??= Date.now(); stopHeartbeat(); publish()
       if (!stopped && !forced) timer = setTimeout(() => { timer = null; connect() }, backoff(attempt++))
     }
   }
@@ -204,6 +255,7 @@ export function createSessionClient<S, A extends BaseAction>(opts: ClientOptions
     if (timer) { clearTimeout(timer); timer = null }
     stopHeartbeat()
     synced = false; presence = {}
+    if (ws !== null || connected) offlineAt ??= Date.now()
     const s = ws; ws = null; connected = false
     if (s) { s.onclose = null; try { s.close() } catch { /* ignore */ } }
   }
@@ -234,7 +286,7 @@ export function createSessionClient<S, A extends BaseAction>(opts: ClientOptions
     getSnapshot: () => snap,
     dispatch(partial: Omit<A, 'clientEventId'> & { clientEventId?: string }): A {
       const action = { ...partial, clientEventId: partial.clientEventId ?? uuid() } as A
-      if (forced || !connected) { outbox.push(action); publish() }
+      if (forced || !connected) { outbox.push(action); queuedAt.set(action.clientEventId, Date.now()); if (queuedAt.size > 500) queuedAt.delete(queuedAt.keys().next().value as string); publish() }
       else { remember(action); rawSend(action) }
       return action
     },
@@ -260,6 +312,6 @@ export function useSession<S, A extends BaseAction>(opts: UseSessionOptions<S, A
   const dispatch = useCallback((a: Omit<A, 'clientEventId'> & { clientEventId?: string }) => client.dispatch(a), [client])
   return {
     state: snap.state, offline: snap.offline, forceOffline: snap.forceOffline, outbox: snap.outbox,
-    conflicts: snap.conflicts, presence: snap.presence, synced: snap.synced, lastResult: snap.lastResult, dispatch, setForceOffline: client.setForceOffline, clearConflicts: client.clearConflicts,
+    conflicts: snap.conflicts, presence: snap.presence, synced: snap.synced, lastResult: snap.lastResult, rttMs: snap.rttMs, dispatch, setForceOffline: client.setForceOffline, clearConflicts: client.clearConflicts,
   }
 }

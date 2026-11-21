@@ -164,8 +164,8 @@ export interface AllergyAck {
   via: 'voice' | 'tap'
 }
 
-export type TelemetryMetric = 'scanToCardMs' | 'doneToAckMs' | 'assessMs'
-export const TELEMETRY_METRICS: readonly TelemetryMetric[] = ['scanToCardMs', 'doneToAckMs', 'assessMs']
+export type TelemetryMetric = 'scanToCardMs' | 'doneToAckMs' | 'assessMs' | 'outboxQueuedMs'
+export const TELEMETRY_METRICS: readonly TelemetryMetric[] = ['scanToCardMs', 'doneToAckMs', 'assessMs', 'outboxQueuedMs']
 export const TELEMETRY_KEEP = 20
 
 export interface ExtraOrder {
@@ -278,10 +278,31 @@ export interface ActionResult {
   needsConfirm?: boolean
 }
 
+/** What the server knows about one connected (or just dropped) device, from its pings. */
+export interface PeerStats {
+  device: Device
+  instance?: string
+  /** The `state.version` the peer last reported; null until its first ping. */
+  v: number | null
+  /** Actions waiting in the peer's outbox. */
+  q: number
+  /** Round trip of the peer's last ping/pong, measured by the peer (ms). */
+  rttMs: number | null
+  /** Server time of the peer's last ping. */
+  lastSeenMs: number
+  /** Server time the socket dropped; null while connected. */
+  offlineSince: number | null
+  /** How long the peer's last outage lasted, as it reported on reconnect (ms). */
+  lastOfflineMs: number | null
+}
+
 export type ServerMsg =
   | { t: 'state'; state: SessionState }
   | { t: 'result'; clientEventId: string; result: ActionResult }
   /** Connected sockets per device role in this session. Sent on connect and on every disconnect. */
   | { t: 'presence'; presence: Record<Device, number> }
-  | { t: 'pong' }
+  /** Answer to a ping; `n` echoes the ping's sequence number so the client can time the round trip. */
+  | { t: 'pong'; n?: number }
+  /** Director-only sync health: one entry per socket (and recently dropped instances), plus the server's state version. At most 2 per second. */
+  | { t: 'stats'; peers: PeerStats[]; serverVersion: number }
   | { t: 'error'; message: string; clientEventId?: string }

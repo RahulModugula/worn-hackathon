@@ -210,6 +210,7 @@ const METRIC_LABELS: Record<TelemetryMetric, string> = {
   scanToCardMs: 'Scan to card',
   doneToAckMs: 'Done to phone',
   assessMs: 'Photo to assessment',
+  outboxQueuedMs: 'Offline to flushed',
 };
 
 /** p50 and max per metric from the server's rolling samples. Metrics with no samples are left out. */

@@ -5,6 +5,7 @@ export const METRIC_LABEL: Record<TelemetryMetric, string> = {
   scanToCardMs: 'Scan lock to Meds card (G4 render)',
   doneToAckMs: '"done" (LOG_MED) to server ack',
   assessMs: 'Wound assessment (assess call)',
+  outboxQueuedMs: 'Offline action queued to flushed (outbox)',
 }
 
 /** Median of the samples (lower middle for an even count, so it is always a measured value). Null when empty. */

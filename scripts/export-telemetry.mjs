@@ -8,6 +8,7 @@ export const LABELS = {
   scanToCardMs: 'Scan lock to Meds card (G4 render)',
   doneToAckMs: '"done" (LOG_MED) to server ack',
   assessMs: 'Wound assessment (assess call)',
+  outboxQueuedMs: 'Offline action queued to flushed (outbox)',
 }
 
 const p50 = (xs) => { const s = [...xs].sort((a, b) => a - b); return s[Math.floor((s.length - 1) / 2)] }

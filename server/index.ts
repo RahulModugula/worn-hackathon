@@ -10,6 +10,8 @@ import { applyAction, getOrCreateSession, sessions, validateAction, SessionCapEr
 
 import { isMainModule } from './mainModule'
 import { resolveAssessmentSource } from './captureSources'
+import { createStatsHub } from './stats'
+import { parsePing } from '../shared/stats'
 import { registerApiRoutes, attachSttProxy, STT_PATH, type SttProxyOptions } from './api'
 
 const MAX_FRAME = 64 * 1024
@@ -68,6 +70,8 @@ export interface ServerOptions {
   port?: number
   patients?: PatientsData
   now?: () => number
+  /** Minimum gap between Director `stats` frames per session. Default 500 (2 per second). */
+  statsIntervalMs?: number
   /** Delay between WOUND_SEND and the simulated doctor reply. Default 5000 (FRD AC#9). */
   drReplyDelayMs?: number
   hooks?: (app: express.Express, http: Server) => void
@@ -105,9 +109,16 @@ export function createApp(opts: ServerOptions = {}) {
   })
   const http = createServer(app)
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_FRAME })
-  interface Peer { device: Device; director: boolean; misses: number; instance?: string }
+  interface Peer { device: Device; director: boolean; misses: number; instance?: string; key: number }
   const rooms = new Map<string, Map<WebSocket, Peer>>()
   const maxSessions = opts.maxSessions ?? MAX_SESSIONS
+  let nextPeerKey = 0
+  const stats = createStatsHub({
+    now,
+    getVersion: sid => sessions.get(sid)?.version ?? 0,
+    minIntervalMs: opts.statsIntervalMs,
+    deliver: (sid, msg) => { for (const [c, p] of rooms.get(sid) ?? []) if (p.director) send(c, msg) },
+  })
   const isBusy = (sid: string) => (rooms.get(sid)?.size ?? 0) > 0
   /** Pending simulated doctor replies, keyed `${sessionId}:${captureId}`. Timers live here, never in applyAction. */
   const replyTimers = new Map<string, ReturnType<typeof setTimeout>>()
@@ -181,19 +192,28 @@ export function createApp(opts: ServerOptions = {}) {
     if (!room) { room = new Map(); rooms.set(sid, room) }
     // Stamped here and nowhere else: a frame body cannot claim another instance (validateAction drops it).
     const instance = parseInstance(u.searchParams.get('instance'))
-    const peer: Peer = { device, director, misses: 0, instance }
+    const peer: Peer = { device, director, misses: 0, instance, key: ++nextPeerKey }
     room.set(ws, peer)
     ws.on('pong', () => { peer.misses = 0 })
-    ws.on('close', () => { room!.delete(ws); if (room!.size === 0 && rooms.get(sid) === room) rooms.delete(sid); broadcastPresence(sid) })
+    ws.on('close', () => {
+      room!.delete(ws); if (room!.size === 0 && rooms.get(sid) === room) rooms.delete(sid)
+      broadcastPresence(sid); stats.closed(sid, peer.key)
+    })
     send(ws, { t: 'state', state: structuredClone(session) })
     broadcastPresence(sid)
+    stats.connected(sid, peer.key, device, instance)
+    if (director) stats.resend(sid) // a director that just joined gets the current picture
     ws.on('message', data => {
       try {
         const buf = Array.isArray(data) ? Buffer.concat(data) : Buffer.from(data as Buffer)
         if (buf.length > MAX_FRAME) return send(ws, { t: 'error', message: 'frame too large' })
         let raw: unknown
         try { raw = JSON.parse(buf.toString('utf8')) } catch { return send(ws, { t: 'error', message: 'bad json' }) }
-        if (raw && typeof raw === 'object' && (raw as { t?: unknown }).t === 'ping') return send(ws, { t: 'pong' })
+        if (raw && typeof raw === 'object' && (raw as { t?: unknown }).t === 'ping') {
+          const info = parsePing(raw)
+          stats.ping(sid, peer.key, info)
+          return send(ws, info.n !== undefined ? { t: 'pong', n: info.n } : { t: 'pong' })
+        }
         const v = validateAction(raw)
         if ('error' in v) {
           const cid = (raw as { clientEventId?: unknown } | null)?.clientEventId
@@ -211,6 +231,7 @@ export function createApp(opts: ServerOptions = {}) {
         // (a duplicate RESET_SESSION would otherwise cancel a doctor reply scheduled after the original).
         if (result.ok && !isReplay(result)) {
           for (const c of room!.keys()) send(c, { t: 'state', state: result.state })
+          stats.versionChanged(sid)
           afterAction(sid, session, action)
         }
       } catch { send(ws, { t: 'error', message: 'internal error' }) }
@@ -243,7 +264,7 @@ export function createApp(opts: ServerOptions = {}) {
     app.use(express.static(dist))
     app.get('/{*splat}', (_req, res) => res.sendFile('index.html', { root: dist }))
   }
-  const dispose = () => { clearInterval(pinger); for (const tm of replyTimers.values()) clearTimeout(tm); replyTimers.clear() }
+  const dispose = () => { clearInterval(pinger); stats.dispose(); for (const tm of replyTimers.values()) clearTimeout(tm); replyTimers.clear() }
   return { app, http, wss, dispose }
 }
 

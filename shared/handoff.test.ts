@@ -125,3 +125,33 @@ describe('buildHandoff (I-PASS, deterministic)', () => {
     expect(a).toContain('Night med 5 mg due 12:30 AM');
   });
 });
+
+describe('buildHandoff with sparse data (nothing is invented)', () => {
+  it('a bare patient yields only I and P lines, and sparse feed entries fall back to neutral words', () => {
+    const bare: HandoffPatient = { id: 'P-1', name: 'Pat', room: '1' };
+    const items = buildHandoff({ medStatus: {}, woundCaptures: [] }, bare, [], 822);
+    expect(items.map((i) => i.text)).toEqual(['Illness severity: Not stated', 'Pat · Rm 1', 'No allergies on chart']);
+    const feed = [
+      fe({ seq: 1, patientId: 'P-1', kind: 'med_given', medName: undefined, chain: [] }),
+      fe({ seq: 2, patientId: 'P-1', kind: 'allergy_ack', medName: undefined, chain: [] }),
+      fe({ seq: 3, patientId: 'P-1', kind: 'wound_sent', chain: [] }),
+      fe({ seq: 4, patientId: 'P-1', kind: 'dr_reply', chain: [] }),
+      fe({ seq: 5, patientId: 'P-1', kind: 'wound_captured', chain: [] }),
+      fe({ seq: 6, patientId: 'P-1', kind: 'med_given', medName: 'X', timeLabel: 'not a label', chain: ['Nurse confirmed via phone'] }),
+    ];
+    const s = buildHandoff({ medStatus: {}, woundCaptures: [], feed }, bare, [], 822).filter((i) => i.section === 'S');
+    expect(s.map((i) => i.text)).toEqual([
+      'Med given 1:30 PM via unknown',
+      'X given not a label via phone',
+      'Allergy alert acknowledged 1:30 PM: order · Chart lists an allergy',
+      'Wound photo sent to the doctor 1:30 PM',
+      'Reply from the doctor 1:30 PM',
+      'Wound photo captured 1:30 PM',
+    ]);
+    expect(s[1].critical).toBe(false); // an unparseable time is never called recent
+  });
+  it('a captured dressing of type none falls back to the chart interval', () => {
+    const w = { patientId: 'P-1012', dressing: { type: 'none', nextDueMin: null } };
+    expect(buildHandoff(state({ woundCaptures: [w] }), maria, [], NOW).filter((i) => i.section === 'A').map((i) => i.text)).toContain('Dressing due 9:00 PM (chart)');
+  });
+});
