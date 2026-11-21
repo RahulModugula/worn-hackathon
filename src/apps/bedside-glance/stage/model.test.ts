@@ -41,6 +41,8 @@ describe('measured text', () => {
     expect(replayText(t, { peers: [peer({ q: 2 })], serverVersion: 5 })).toBe('2 replayed · queued 8.1 s · 2 still queued');
     expect(replayText(t, { peers: [peer({ v: 4 })], serverVersion: 5 })).toBe('2 replayed · queued 8.1 s · lost -');
     expect(replayText(t, null)).toBe('2 replayed · queued 8.1 s · lost -');
+    // A just-reconnected peer that has not reported its version yet is not evidence of convergence.
+    expect(replayText(t, { peers: [peer({ v: 5 }), peer({ device: 'phone', v: null })], serverVersion: 5 })).toBe('2 replayed · queued 8.1 s · lost -');
   });
   it('latency last, p50, n', () => {
     expect(latencyText({ doneToAckMs: [30, 10, 20, 50] })).toBe('last 50 ms · p50 20 ms · n=4');

@@ -17,8 +17,11 @@ const ROLE: Record<string, string> = { glasses: 'Glasses', phone: 'Phone', direc
 export function deviceRows(stats: StatsFrame | null, hide: readonly string[] = []): DeviceRow[] {
   if (!stats) return [];
   const { behind } = convergence(stats.peers, stats.serverVersion);
+  const order = (d: string) => ['glasses', 'phone', 'director'].indexOf(d);
   return stats.peers
     .filter((p) => !(p.instance && hide.includes(p.instance)))
+    .slice()
+    .sort((a, b) => order(a.device) - order(b.device))
     .map((p, i) => {
       const offline = p.offlineSince !== null;
       const sync: SyncLabel = offline ? 'offline' : p.v === null ? NONE : behind.includes(p) ? 'behind' : 'in sync';
@@ -54,7 +57,8 @@ export function replayText(telemetry: SessionState['telemetry'], stats: StatsFra
     const online = stats.peers.filter((p) => p.offlineSince === null);
     const waiting = online.reduce((n, p) => n + p.q, 0);
     if (waiting > 0) tail = `${waiting} still queued`;
-    else if (convergence(stats.peers, stats.serverVersion).status === 'converged') tail = '0 lost';
+    // Every connected peer must have reported its version (a fresh reconnect has not yet) and match the server.
+    else if (online.every((p) => p.v !== null) && convergence(stats.peers, stats.serverVersion).status === 'converged') tail = '0 lost';
   }
   return `${q.length} replayed · queued ${(longest / 1000).toFixed(1)} s · ${tail}`;
 }

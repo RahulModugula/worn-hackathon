@@ -31,7 +31,10 @@ function useDownFor(down: boolean, now: () => number): number | null {
 const SYNC_TONE = { 'in sync': 'ok', behind: 'warn', offline: 'bad', [NONE]: 'dim' } as const;
 
 /** The projector layout, designed at 1280x720 (the page scales it to any 16:9 screen). Pure of sockets: props in, markup out. */
-export function StageView({ state, presence, stats, ownInstances = [], hud, now = Date.now }: StageViewProps) {
+export function StageView({ state, presence, stats: rawStats, ownInstances = [], hud, now = Date.now }: StageViewProps) {
+  // The projector's own sockets (this feed and the mirror HUD) never ping, so they must not count as peers anywhere.
+  const stats = rawStats && { ...rawStats, peers: rawStats.peers.filter((p) => !(p.instance && ownInstances.includes(p.instance))) };
+  const replay = replayText(state?.telemetry, stats);
   const glassesDown = presence?.glasses === 0;
   const downFor = useDownFor(glassesDown, now);
   const glassesPeer = stats?.peers.filter((p) => p.device === 'glasses').sort((a, b) => b.lastSeenMs - a.lastSeenMs)[0];
@@ -91,7 +94,7 @@ export function StageView({ state, presence, stats, ownInstances = [], hud, now 
           </section>
           <section className="st-panel" aria-label="Replay">
             <h2>Replay</h2>
-            <p className={`st-val ${replayText(state?.telemetry, stats) === NONE ? 'st-dim' : ''}`} data-testid="replay-text">{replayText(state?.telemetry, stats)}</p>
+            <p className={`st-val ${replay === NONE ? 'st-dim' : ''}`} data-testid="replay-text">{replay}</p>
           </section>
           <section className="st-panel" aria-label="Conflicts">
             <h2>Conflicts</h2>
