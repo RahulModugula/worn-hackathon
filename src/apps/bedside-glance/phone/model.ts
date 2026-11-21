@@ -1,7 +1,8 @@
 // Pure helpers for the phone UI. No React, no network: easy to test and reuse.
 import patientsJson from '../../../../data/patients.json';
+import { DRESSING_LABELS } from '../../../../shared/types';
 import type {
-  Action, AssessmentSource, Device, FeedEntry, LastMedLog, MedStatus, SessionState, TelemetryMetric, WoundCapture,
+  Action, AssessmentSource, Device, FeedEntry, WoundDressing, LastMedLog, MedStatus, SessionState, TelemetryMetric, WoundCapture,
 } from '../../../../shared/types';
 import { hhmmToMinutes, isActionable, longTime, minutesUntil } from '../../../../shared/clock';
 
@@ -242,3 +243,39 @@ export const EARLY_REASONS = [
   'Chart time looks wrong',
   'Other, will note in the chart',
 ] as const;
+
+// ---------- nurse-entered dressing documentation (a documentation aid; nothing here recommends an interval) ----------
+
+const DRESSING_LINE_PREFIX = 'Dressing (documented by nurse):';
+
+/** `Hydrogel · Changed 2:05 PM · due 2:05 PM`, `... · due per protocol`, or just `None`. */
+export function dressingSummary(d: WoundDressing): string {
+  const name = DRESSING_LABELS[d.type];
+  if (d.type === 'none' || d.changedAtMin === undefined) return name;
+  return `${name} · Changed ${longTime(d.changedAtMin)} · due ${d.nextDueMin === null ? 'per protocol' : longTime(d.nextDueMin)}`;
+}
+
+/** The line added to the draft note on Save and Send. */
+export function dressingNoteLine(d: WoundDressing): string {
+  const name = DRESSING_LABELS[d.type];
+  if (d.type === 'none' || d.changedAtMin === undefined) return `${DRESSING_LINE_PREFIX} ${name}.`;
+  const next = d.nextDueMin === null ? 'next change per protocol' : `next due ${longTime(d.nextDueMin)}`;
+  return `${DRESSING_LINE_PREFIX} ${name}. Changed ${longTime(d.changedAtMin)}; ${next}.`;
+}
+
+/** Draft note with exactly one dressing line at the end (an older one is replaced). Untouched when nothing was documented. */
+export function withDressingLine(draft: string, d: WoundDressing | undefined): string {
+  if (!d) return draft;
+  const kept = draft.split('\n').filter(l => !l.startsWith(DRESSING_LINE_PREFIX)).join('\n').replace(/\s+$/, '');
+  return kept ? `${kept}\n${dressingNoteLine(d)}` : dressingNoteLine(d);
+}
+
+/** Minutes since midnight to an `<input type="time">` value (`14:05`), and back. Null when blank or malformed. */
+export function minToTimeInput(min: number): string {
+  const m = ((Math.floor(min) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+export function timeInputToMin(v: string): number | null {
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(v);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}

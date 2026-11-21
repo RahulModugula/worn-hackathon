@@ -11,7 +11,7 @@ import { Icon } from './Icon';
 import { BrandMark, Button, Sheet, StatusDot, TabBar, Toast, UndoRing, type TabItem } from './ui';
 import {
   EARLY_REASONS, NURSE, assessmentLabel, captureAssessment, conflictText, isNotYetDue, medStatusOf, patientById, pendingReview,
-  sortedPatients, latestCapture, undoLabel, undoRemainingSinceReceipt,
+  sortedPatients, latestCapture, undoLabel, undoRemainingSinceReceipt, withDressingLine,
 } from './model';
 import './tokens.css';
 import './phone.css';
@@ -147,7 +147,7 @@ export function PhoneApp({ sessionId = 'demo', directorOpen = false, scanOpen = 
   // The server owns the lifecycle: save, send, the "Sent to" notice on the glasses and the doctor reply timer.
   const onSaveWound = () => {
     if (!wound) return;
-    send({ type: 'WOUND_SAVE', device: 'phone', captureId: wound.captureId, draftNote: draftText });
+    send({ type: 'WOUND_SAVE', device: 'phone', captureId: wound.captureId, draftNote: withDressingLine(draftText, wound.dressing) });
   };
   const onRetryPhoto = () => {
     if (!wound) return;
@@ -155,7 +155,7 @@ export function PhoneApp({ sessionId = 'demo', directorOpen = false, scanOpen = 
   };
   const onSendWound = () => {
     if (!wound) return;
-    send({ type: 'WOUND_SEND', device: 'phone', captureId: wound.captureId, draftNote: draftText });
+    send({ type: 'WOUND_SEND', device: 'phone', captureId: wound.captureId, draftNote: withDressingLine(draftText, wound.dressing) });
   };
 
   const rows = sortedPatients(state);
@@ -211,6 +211,8 @@ export function PhoneApp({ sessionId = 'demo', directorOpen = false, scanOpen = 
         onSend={onSendWound}
         onRetry={onRetryPhoto}
         reply={wound.reply ?? null}
+        nowMin={nowMin}
+        onSetDressing={v => send({ type: 'WOUND_SET_DRESSING', device: 'phone', captureId: wound.captureId, ...v })}
       />
     ) : <WoundEmpty />;
   } else if (view.name === 'activity') {

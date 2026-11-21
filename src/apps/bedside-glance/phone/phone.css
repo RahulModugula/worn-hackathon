@@ -464,3 +464,14 @@
 @media (min-width: 560px) {
   .ph-compare .ph-photo-box { aspect-ratio: 4 / 3; }
 }
+
+/* ---------- Wound dressing card (nurse-entered documentation) ---------- */
+.ph-dressing { display: flex; flex-direction: column; gap: var(--s-2); margin-top: var(--s-4); }
+.ph-dr-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); }
+.ph-dr-ctl {
+  display: block; width: 100%; min-height: var(--tap); padding: 0 var(--s-3); border: 1px solid var(--line); border-radius: var(--r-ctrl);
+  background: var(--surface-2); color: var(--fg); font: var(--w-regular) var(--t-16) / 1.2 var(--font-ui);
+}
+.ph-dr-presets { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-2); }
+.ph-dr-preset { padding: 0 var(--s-2); white-space: nowrap; }
+.ph-dr-preset[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: var(--w-semibold); }

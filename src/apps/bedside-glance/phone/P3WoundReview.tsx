@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { WoundCapture, WoundCaptureStatus } from '../../../../shared/types';
 import { hhmmToMinutes, longTime } from '../../../../shared/clock';
-import { assessmentLabel, type Assessment, type Patient } from './model';
+import { assessmentLabel, withDressingLine, type Assessment, type Patient } from './model';
+import { DressingCard, type DressingInput } from './DressingCard';
 import { Icon } from './Icon';
 import { Button, Card, Chip, EmptyState, Skeleton, type Tone } from './ui';
 
@@ -21,6 +22,9 @@ interface Props {
   /** Unused since the tab bar; accepted so older callers still type-check. */
   onBack?: () => void;
   reply: WoundCapture['reply'] | null;
+  /** Demo clock now (minutes since midnight), the default for the dressing 'Last changed' field. */
+  nowMin?: number | null;
+  onSetDressing?: (v: DressingInput) => void;
 }
 
 const SOURCE_TONE: Record<string, Tone> = { 'AI result': 'accent', 'No AI review': 'info', 'Assessment unavailable': 'warn' };
@@ -49,6 +53,7 @@ export function P3WoundReview(p: Props) {
       <div className="ph-head-block">
         <h1 id="p3-title" className="ph-title">Wound review</h1>
         <p className="ph-muted">{patient.name} · {patient.wound?.site ?? 'wound'}</p>
+        <p className="ph-small ph-muted">Documentation aid, not a diagnosis. Draft for clinician review.</p>
       </div>
 
       <div className="ph-compare">
@@ -119,6 +124,13 @@ export function P3WoundReview(p: Props) {
         disabled={!pending}
         onChange={e => p.onDraftChange(e.target.value)}
       />
+      {capture.dressing && pending && (
+        <p className="ph-small ph-muted" data-testid="dressing-note-preview">
+          Added to the note when you save or send: {withDressingLine('', capture.dressing)}
+        </p>
+      )}
+
+      <DressingCard key={capture.captureId + ':' + String(capture.dressing?.atMs ?? 0)}capture={capture} nowMin={p.nowMin ?? null} onSet={p.onSetDressing} />
 
       {status === 'saved' && <p className="ph-done"><Icon name="check-circle" size={20} /><span>Saved to chart</span></p>}
       {status === 'sent' && (
