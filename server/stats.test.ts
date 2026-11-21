@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createStatsHub } from './stats'
+import { createStatsHub, GHOST_MS } from './stats'
 import type { ServerMsg } from '../shared/types'
 
 type Stats = Extract<ServerMsg, { t: 'stats' }>
@@ -93,6 +93,37 @@ describe('stats hub', () => {
     step(61_000)
     h.versionChanged('s')
     expect(out.at(-1)!.peers).toEqual([])
+  })
+
+  it('frees the session entry GHOST_MS after the room empties, so entries do not grow without bound', () => {
+    const h = hub()
+    for (let i = 0; i < 200; i++) { h.connected(`s${i}`, i, 'phone', `inst-${i}-aaaa`); h.closed(`s${i}`, i) }
+    expect(h.size()).toBe(200)
+    step(GHOST_MS + 1000)
+    expect(h.size()).toBe(0)
+  })
+
+  it('a reconnect inside the grace period cancels the drop', () => {
+    const h = hub()
+    h.connected('s', 1, 'phone', 'inst-r-aaaa'); h.closed('s', 1)
+    step(GHOST_MS - 1000)
+    h.connected('s', 2, 'phone', 'inst-r-aaaa')
+    step(GHOST_MS * 2)
+    expect(h.size()).toBe(1)
+    h.closed('s', 2)
+    step(GHOST_MS + 1000)
+    expect(h.size()).toBe(0)
+  })
+
+  it('closed() makes no ghost while a live peer has the same instance (reconnect before the old socket closes)', () => {
+    const h = hub()
+    h.connected('s', 1, 'phone', 'inst-dup-aaaa')
+    h.connected('s', 2, 'phone', 'inst-dup-aaaa')
+    h.closed('s', 1)
+    step(1000)
+    const peers = out.at(-1)!.peers
+    expect(peers).toHaveLength(1)
+    expect(peers[0].offlineSince).toBeNull()
   })
 
   it('dropSession clears pending timers and state', () => {

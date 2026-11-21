@@ -6,7 +6,7 @@ import type { PingInfo } from '../shared/stats'
 export const GHOST_MS = 60_000
 
 interface Rec extends PeerStats { key: number }
-interface Sess { peers: Map<number, Rec>; ghosts: Map<string, Rec>; lastJson: string; lastAt: number; timer: ReturnType<typeof setTimeout> | null }
+interface Sess { peers: Map<number, Rec>; ghosts: Map<string, Rec>; lastJson: string; lastAt: number; timer: ReturnType<typeof setTimeout> | null; dropTimer: ReturnType<typeof setTimeout> | null }
 
 export interface StatsHubOptions {
   now: () => number
@@ -21,7 +21,7 @@ export function createStatsHub(opts: StatsHubOptions) {
   const sessions = new Map<string, Sess>()
   const get = (sid: string): Sess => {
     let s = sessions.get(sid)
-    if (!s) { s = { peers: new Map(), ghosts: new Map(), lastJson: '', lastAt: Number.NEGATIVE_INFINITY, timer: null }; sessions.set(sid, s) }
+    if (!s) { s = { peers: new Map(), ghosts: new Map(), lastJson: '', lastAt: Number.NEGATIVE_INFINITY, timer: null, dropTimer: null }; sessions.set(sid, s) }
     return s
   }
   const snapshot = (sid: string, s: Sess): Extract<ServerMsg, { t: 'stats' }> => {
@@ -51,9 +51,17 @@ export function createStatsHub(opts: StatsHubOptions) {
     else s.timer = setTimeout(() => flush(sid, s), wait)
   }
 
+  function freeSession(sid: string) {
+    const s = sessions.get(sid)
+    if (s?.timer) clearTimeout(s.timer)
+    if (s?.dropTimer) clearTimeout(s.dropTimer)
+    sessions.delete(sid)
+  }
+
   return {
     connected(sid: string, key: number, device: Device, instance?: string) {
       const s = get(sid)
+      if (s.dropTimer) { clearTimeout(s.dropTimer); s.dropTimer = null } // someone is back: keep the entry
       if (instance) s.ghosts.delete(instance)
       s.peers.set(key, { key, device, ...(instance ? { instance } : {}), v: null, q: 0, rttMs: null, lastSeenMs: opts.now(), offlineSince: null, lastOfflineMs: null })
       mark(sid)
@@ -73,18 +81,23 @@ export function createStatsHub(opts: StatsHubOptions) {
       const r = s?.peers.get(key)
       if (!s || !r) return
       s.peers.delete(key)
-      if (r.instance) s.ghosts.set(r.instance, { ...r, offlineSince: opts.now() })
+      // A live peer with the same instance (reconnect raced the old close) means that instance is not offline.
+      const stillLive = r.instance !== undefined && [...s.peers.values()].some(p => p.instance === r.instance)
+      if (r.instance && !stillLive) s.ghosts.set(r.instance, { ...r, offlineSince: opts.now() })
       mark(sid)
+      // Room empty: free the entry once the ghosts have expired. A reconnect cancels it.
+      if (s.peers.size === 0 && !s.dropTimer) {
+        s.dropTimer = setTimeout(() => { if (s.peers.size === 0) freeSession(sid) }, GHOST_MS + 1)
+        s.dropTimer.unref?.()
+      }
     },
     /** The session's state version moved (an accepted action) or the director just connected: re-send if it differs. */
     versionChanged(sid: string) { mark(sid) },
     /** Forces the current frame out (a director just connected), ignoring change detection but not the rate limit. */
     resend(sid: string) { const s = get(sid); s.lastJson = ''; mark(sid) },
-    dropSession(sid: string) {
-      const s = sessions.get(sid)
-      if (s?.timer) clearTimeout(s.timer)
-      sessions.delete(sid)
-    },
-    dispose() { for (const s of sessions.values()) if (s.timer) clearTimeout(s.timer); sessions.clear() },
+    dropSession: freeSession,
+    /** Number of per-session entries held (for tests and diagnostics). */
+    size: () => sessions.size,
+    dispose() { for (const s of sessions.values()) { if (s.timer) clearTimeout(s.timer); if (s.dropTimer) clearTimeout(s.dropTimer) } sessions.clear() },
   }
 }
