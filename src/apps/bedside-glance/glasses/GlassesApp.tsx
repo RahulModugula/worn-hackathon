@@ -98,7 +98,7 @@ function isEditable(t: EventTarget | null): boolean {
 const HOTKEY_INTENT: Record<string, { intent: Intent; force?: boolean }> = {
   p: { intent: 'pain', force: true }, w: { intent: 'wound', force: true }, d: { intent: 'done' },
   s: { intent: 'send', force: true }, r: { intent: 'retry' }, t: { intent: 'vitals' }, u: { intent: 'undo' },
-  n: { intent: 'next' }, a: { intent: 'allergy', force: true },
+  n: { intent: 'next' }, a: { intent: 'allergy', force: true }, k: { intent: 'acknowledge' }, // k: desktop preview only (the glasses have no keyboard); the e2e uses it because headless Chrome has no mic
 };
 
 /** Android KeyEvent codes sent by android-wrapper in the 'glasskey' event. */
@@ -510,7 +510,7 @@ export function GlassesAppCore(props: GlassesAppCoreProps) {
       sample('outboxQueuedMs', Math.min(e.queuedMs, 600_000), true);
     });
     // sample only touches refs
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- skip-reason: sample() only touches refs, same pattern as the scan-latency effect above
   }, [mirror, subscribeFlushed]);
 
   // ---- Director chaos: go offline, optionally say "done" while dark, come back (client timers only) ----
