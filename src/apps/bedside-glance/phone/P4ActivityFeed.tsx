@@ -11,7 +11,10 @@ interface Props {
   feed?: FeedEntry[];
 }
 
-const REAL_TYPES = new Set(['LOG_MED', 'UNDO_LAST_MED', 'WOUND_CAPTURED', 'WOUND_SAVE', 'WOUND_SEND', 'WOUND_RETRY_UPLOAD', 'DR_REPLY']);
+const REAL_TYPES = new Set([
+  'LOG_MED', 'UNDO_LAST_MED', 'WOUND_CAPTURED', 'WOUND_SAVE', 'WOUND_SEND', 'WOUND_RETRY_UPLOAD', 'DR_REPLY',
+  'WOUND_SET_DRESSING', 'ALLERGY_ACK', 'HANDOFF_OFFER', 'HANDOFF_READBACK', 'HANDOFF_ACCEPT',
+]);
 
 const DEVICE_ICON: Record<string, IconName> = { glasses: 'glasses', phone: 'phone', director: 'bolt' };
 
@@ -60,6 +63,8 @@ export function P4ActivityFeed({ events, labelFor, feed }: Props) {
             <ol className="ph-timeline">
               {g.items.map(({ e, time }, i) => {
                 const chain = chainFor(feed, e.seq);
+                const entry = feed?.find(f => f.seq === e.seq);
+                const detail = entry && (entry.kind === 'handoff_offered' || entry.kind === 'handoff_accepted') ? entry.label : undefined;
                 const device = isDemo(e) ? 'director' : deviceLabel({ by: e.device }) === 'director' ? 'phone' : deviceLabel({ by: e.device });
                 return (
                   <li key={`${e.seq}-${i}`} className="ph-event">
@@ -69,6 +74,7 @@ export function P4ActivityFeed({ events, labelFor, feed }: Props) {
                         <span className="ph-strong">{eventLabel(e.type)}</span>
                         <span className="ph-muted ph-event-time">{time}</span>
                       </div>
+                      {detail && <span className="ph-strong" data-testid="feed-label">{detail}</span>}
                       <span className="ph-muted">From the {device}</span>
                       {chain.length > 0 && <VerificationSteps steps={chain} />}
                     </div>

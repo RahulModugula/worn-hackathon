@@ -337,6 +337,45 @@
   color: var(--fg); font-size: var(--t-14); font-weight: var(--w-semibold); line-height: 1.35;
 }
 .ph-toast .ph-icon { color: var(--tone); margin-top: 1px; }
+
+/* Refused Give: the receiving nurse must see who already gave it. Icon + text + border, never colour alone. */
+.ph-given-banner {
+  position: sticky; top: calc(var(--top-h) + env(safe-area-inset-top)); z-index: 21;
+  display: flex; align-items: center; gap: var(--s-3);
+  width: calc(100% - var(--s-5)); max-width: calc(var(--content-w) - var(--s-4)); margin: var(--s-2) auto 0;
+  padding: var(--s-4); border: 2px solid var(--warn); border-radius: var(--r-card);
+  background: var(--warn-bg); color: var(--fg); box-shadow: var(--shadow-sheet);
+  font: var(--w-semibold) var(--t-20) / 1.25 var(--font-ui); font-variant-numeric: tabular-nums;
+  animation: ph-rise var(--dur) var(--ease-out) both;
+}
+.ph-given-banner .ph-icon { color: var(--warn); flex: none; }
+
+/* Handoff */
+.ph-handoff-from { margin: 0 0 var(--s-3); }
+.ph-handoff-sev { display: flex; align-items: center; gap: var(--s-2); margin: 0 0 var(--s-3); }
+.ph-handoff-sec { margin-top: var(--s-4); }
+.ph-handoff-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+.ph-handoff-item {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-3);
+  min-height: var(--tap); padding: var(--s-2) 0; border-bottom: 1px solid var(--line);
+  font-size: var(--t-16); font-variant-numeric: tabular-nums;
+}
+.ph-handoff-text { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); min-width: 0; }
+.ph-handoff-refusal {
+  display: flex; align-items: flex-start; gap: var(--s-2); margin: var(--s-3) 0 0; padding: var(--s-3);
+  border: 2px solid var(--danger); border-radius: var(--r-ctrl); background: var(--danger-bg);
+  font-size: var(--t-14); font-weight: var(--w-semibold);
+}
+.ph-handoff-refusal .ph-icon { color: var(--danger); flex: none; }
+.ph-sev { border: 0; padding: 0; margin: 0 0 var(--s-3); }
+.ph-sev legend { padding: 0; margin-bottom: var(--s-2); }
+.ph-sev-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s-2); }
+.ph-sev-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s-1); min-height: var(--tap);
+  border: 1px solid var(--line-strong); border-radius: var(--r-ctrl); background: var(--surface-2); color: var(--fg);
+  font: var(--w-medium) var(--t-14) / 1 var(--font-ui); cursor: pointer; touch-action: manipulation;
+}
+.ph-sev-on { border: 2px solid var(--info); background: var(--info-bg); font-weight: var(--w-semibold); }
 .ph-undo {
   display: flex; align-items: center; gap: var(--s-3); width: 100%; min-height: 60px;
   padding: var(--s-2) var(--s-4) var(--s-2) var(--s-2); border: 0; border-radius: var(--r-card);

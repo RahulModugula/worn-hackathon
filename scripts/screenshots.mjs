@@ -206,6 +206,26 @@ async function phoneCaptures(browser, base, sidA) {
     await sleep(300);
     await phoneShot(P, 'phone-p3-dressing');
     await P.evaluate(() => window.scrollTo(0, 0));
+
+    // Handoff: this phone offers Rm 12 to Marcus T.; a second phone (?nurse=N-02) shows the I-PASS sheet, then the
+    // "Already given" banner when Marcus taps Metformin (logged above from the first phone).
+    await clickButton(P, '.ph-tabbar', 'Patient', { contains: true }).catch(() => {});
+    await P.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => b.textContent.includes('Hand off Rm')), { timeout: 5000 });
+    await clickButton(P, '.ph-view-patient', 'Hand off Rm', { contains: true });
+    const N = await openPage(browser, { ua: IPHONE_UA, viewport: PHONE_VP });
+    try {
+      await N.page.goto(`${base}/phone?nurse=N-02&session=${sid}`, { waitUntil: 'domcontentloaded' });
+      await N.page.waitForSelector('.ph-handoff', { timeout: 15000 });
+      await sleep(500);
+      await phoneShot(N.page, 'phone-handoff-sheet');
+      await clickButton(N.page, '.ph-handoff', 'Not now');
+      await sleep(400);
+      await clickButton(N.page, '.ph-tabbar', 'Patient', { contains: true }).catch(() => {});
+      await N.page.waitForFunction(() => !!document.querySelector('button.ph-med'), { timeout: 5000 });
+      await clickMedRow(N.page, 'Metformin');
+      await N.page.waitForSelector('.ph-given-banner', { timeout: 5000 });
+      await phoneShot(N.page, 'phone-conflict-banner');
+    } finally { await N.page.close().catch(() => {}); }
   } finally {
     await close();
   }
