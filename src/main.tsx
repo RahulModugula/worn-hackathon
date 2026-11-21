@@ -11,6 +11,7 @@ import { GlassesPage } from './pages/GlassesPage';
 const PhonePage = lazy(() => import('./pages/PhonePage').then((m) => ({ default: m.PhonePage })));
 const ImpactPage = lazy(() => import('./pages/ImpactPage').then((m) => ({ default: m.ImpactPage })));
 const QrPrintPage = lazy(() => import('./apps/bedside-glance/qr/QrPrintPage'));
+const StagePage = lazy(() => import('./apps/bedside-glance/stage/StagePage'));
 
 function IndexPage() {
   return (
@@ -35,6 +36,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/phone" element={<PhonePage />} />
           <Route path="/impact" element={<ImpactPage />} />
           <Route path="/qr" element={<QrPrintPage />} />
+          <Route path="/stage" element={<StagePage />} />
         </Routes>
       </Suspense>
     </BrowserRouter>
